@@ -1,0 +1,12 @@
+# niuclaude-memory
+MEMORY.md
+.niuclaude-attachments/
+__pycache__/
+*.pyc
+.claude/scheduled_tasks.json
+memory/
+output/
+pip/
+template.docx
+【在线填写版】会议活动筹备模板.docx
+【正式版】会议_活动筹备模板.docx

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会议/活动筹备 — 在线填写版</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #e6e8eb; color: #2c2c2c; line-height: 1.5; }
+
+/* ---- Top bar ---- */
+.topbar { background: #1e293b; color: #e2e8f0; padding: 0 24px; display: flex; align-items: center; height: 46px; gap: 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.topbar .logo { font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
+.topbar .logo span { color: #60a5fa; }
+.topbar .spacer { flex: 1; }
+.topbar .badge { font-size: 11px; padding: 3px 12px; border-radius: 12px; }
+.badge-draft { background: #334155; color: #94a3b8; }
+.badge-ready { background: #065f46; color: #a7f3d0; }
+
+/* ---- Main ---- */
+.main { max-width: 1020px; margin: 0 auto; padding: 18px 14px 80px; }
+
+/* ---- Section ---- */
+.section { background: #fff; margin-bottom: 14px; border: 1px solid #d5d8dc; border-radius: 2px; }
+.section-header { padding: 11px 20px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid transparent; }
+.section-header:hover { background: #f9fafb; }
+.section.open .section-header { border-bottom-color: #e2e4e8; }
+.section-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; color: #fff; }
+.section-title { font-size: 14px; font-weight: 500; color: #1e293b; }
+.section-arrow { font-size: 10px; color: #b0b8c1; transition: transform 0.15s; }
+.section.open .section-arrow { transform: rotate(90deg); }
+.section-body { display: none; }
+.section.open .section-body { display: block; }
+
+.s1 .section-num { background: #2563eb; }
+.s2 .section-num { background: #1e40af; }
+.s3 .section-num { background: #6366f1; }
+.s4 .section-num { background: #334155; }
+.s5 .section-num { background: #475569; }
+
+/* ---- Template table ---- */
+.tmpl-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.tmpl-table td, .tmpl-table th { border: 1px solid #d0d3d8; padding: 7px 10px; vertical-align: middle; font-size: 13px; }
+.tmpl-table .lbl { background: #f2f4f6; font-weight: 500; color: #475569; text-align: center; font-size: 12px; white-space: nowrap; }
+.tmpl-table .fill { background: #fff; }
+
+/* Inputs */
+.tmpl-table input[type="text"],
+.tmpl-table input[type="url"],
+.tmpl-table textarea {
+  width: 100%; border: none; background: transparent; font-size: 13px; font-family: inherit; padding: 5px 4px; outline: none; color: #1e293b;
+}
+.tmpl-table textarea { min-height: 52px; resize: vertical; }
+.tmpl-table input:focus, .tmpl-table textarea:focus { background: #fafcff; }
+
+/* Date picker inline */
+.date-inline { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.date-inline select { padding: 5px 6px; border: 1px solid #c8ccd4; border-radius: 4px; font-size: 12px; font-family: inherit; background: #fff; color: #334155; }
+.date-inline input[type="date"] { width: 130px !important; padding: 5px 6px !important; border: 1px solid #c8ccd4 !important; border-radius: 4px !important; font-size: 12px !important; background: #fff !important; font-family: inherit; }
+.date-inline input[type="text"].time-input { width: 72px !important; padding: 5px 6px !important; border: 1px solid #c8ccd4 !important; border-radius: 4px !important; font-size: 12px !important; background: #fff !important; text-align: center; }
+.date-inline .sep { color: #94a3b8; font-size: 13px; }
+
+/* Checkbox labels */
+.cb-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 10px; border-radius: 3px; font-size: 13px; white-space: nowrap; }
+.cb-label:hover { background: #eef2ff; }
+.cb-label input[type="checkbox"] { width: 14px; height: 14px; accent-color: #2563eb; cursor: pointer; }
+.cb-label.checked { background: #eef2ff; color: #2563eb; font-weight: 500; }
+
+	/* Checkbox grid — 5 equal columns for vertical alignment */
+	.cb-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px 4px; align-items: center; }
+
+/* Radio pills */
+.radio-inline { display: flex; gap: 6px; flex-wrap: wrap; }
+.radio-pill { padding: 4px 16px; border: 1px solid #c8ccd4; border-radius: 16px; cursor: pointer; font-size: 12px; background: #fff; transition: all 0.15s; color: #475569; }
+.radio-pill:hover { border-color: #2563eb; color: #2563eb; }
+.radio-pill.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.radio-pill input { display: none; }
+
+/* Rich editor */
+.rich-editor { min-height: 130px; overflow-y: auto; padding: 6px; font-size: 13px; }
+.rich-editor img { max-width: 100%; height: auto; border-radius: 3px; margin: 4px 0; }
+.rich-editor:empty::before { content: '可直接从Word/网页粘贴日程文本和图片...'; color: #b0b8c1; }
+.rich-editor:focus { background: #fafcff; }
+
+/* VIP table inside cell */
+.vip-table { width: 100%; border-collapse: collapse; }
+.vip-table th, .vip-table td { border: 1px solid #d0d3d8; padding: 6px 8px; font-size: 12px; text-align: center; }
+.vip-table th { background: #f2f4f6; font-weight: 500; color: #475569; }
+.vip-table td input { width: 100%; border: none; background: transparent; font-size: 12px; font-family: inherit; padding: 4px; outline: none; }
+
+/* Todo list */
+.todo-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid #e8eaed; font-size: 13px; }
+.todo-item:last-child { border-bottom: none; }
+.todo-item input.todo-check { width: 16px; height: 16px; accent-color: #10b981; cursor: pointer; flex-shrink: 0; }
+.todo-item .todo-text { flex: 1; border: none; background: transparent; font-size: 13px; font-family: inherit; padding: 0; outline: none; }
+.todo-item.done .todo-text { text-decoration: line-through; color: #b0b8c1; }
+.todo-item .todo-del { color: #c0c4cc; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 3px; line-height: 1; }
+.todo-item .todo-del:hover { color: #dc2626; background: #fef2f2; }
+
+.add-row {  }
+.add-btn { display: block; width: 100%; padding: 7px; color: #2563eb; font-size: 12px; cursor: pointer; background: none; border: none; font-family: inherit; text-align: center; }
+.add-btn:hover { text-decoration: underline; background: #f8fafc; }
+
+/* Auto cards */
+.auto-card { padding: 8px 10px; font-size: 12px; border-radius: 4px; }
+.auto-card.weather { background: #eff6ff; border: 1px solid #bfdbfe; }
+.auto-card.traffic { background: #fefce8; border: 1px solid #fde68a; }
+.auto-card .ac-content { margin-bottom: 3px; color: #334155; }
+.auto-card .ac-meta { font-size: 11px; color: #94a3b8; }
+.refresh-btn { background: #fff; border: 1px solid #c8ccd4; padding: 3px 12px; border-radius: 12px; font-size: 11px; cursor: pointer; color: #64748b; font-family: inherit; }
+.refresh-btn:hover { border-color: #2563eb; color: #2563eb; background: #f8fafc; }
+
+/* Hint */
+.hint { font-size: 11px; color: #94a3b8; font-weight: 400; }
+
+/* Bottom bar */
+.bottombar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #d5d8dc; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 -2px 8px rgba(0,0,0,0.04); }
+.bottombar .last-saved { font-size: 12px; color: #94a3b8; }
+.btn { padding: 8px 20px; border: none; border-radius: 5px; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500; }
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-share { background: #1e293b; color: #e2e8f0; }
+.btn-share:hover { background: #0f172a; }
+.btn-ghost { background: #fff; color: #475569; border: 1px solid #d0d3d8; }
+.btn-ghost:hover { background: #f8fafc; }
+
+/* ---- Modal ---- */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 10px; padding: 28px; max-width: 480px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+.modal h3 { font-size: 17px; margin-bottom: 8px; color: #1e293b; }
+.modal p { font-size: 13px; color: #64748b; margin-bottom: 16px; }
+.modal .link-box { display: flex; gap: 8px; }
+.modal .link-box input { flex: 1; padding: 10px; border: 1px solid #d0d3d8; border-radius: 5px; font-size: 13px; background: #f8fafc; font-family: monospace; }
+.modal .note { font-size: 11px; color: #065f46; margin-top: 10px; background: #ecfdf5; padding: 8px 12px; border-radius: 5px; }
+.modal .btn-copy { padding: 10px 18px; background: #1e293b; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; font-family: inherit; font-size: 13px; }
+
+@media (max-width: 720px) {
+  .tmpl-table { font-size: 11px; }
+  .tmpl-table td, .tmpl-table th { padding: 4px 6px; }
+  .cb-label { font-size: 11px; padding: 3px 6px; }
+  .date-inline { gap: 3px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">Claire<span> 活动管理</span></span>
+  <span class="spacer"></span>
+  <span class="badge badge-draft" id="topBadge">草稿</span>
+  <button class="btn btn-share" style="padding:5px 14px;font-size:12px;" onclick="openShareModal()">生成分享链接</button>
+</div>
+
+<div class="main">
+
+<!-- ============ 一、活动基本信息 ============ -->
+<div class="section s1 open" id="sec1">
+  <div class="section-header" onclick="toggleSection('sec1')">
+    <span class="section-num">1</span><span class="section-title">活动基本信息</span><span class="section-arrow">&gt;</span>
+  </div>
+  <div class="section-body">
+    <table class="tmpl-table">
+      <colgroup>
+        <col style="width:100px;"><col><col style="width:100px;"><col>
+      </colgroup>
+      <tr>
+        <td class="lbl">会议名称</td>
+        <td class="fill" colspan="3"><input type="text" placeholder="输入活动名称"></td>
+      </tr>
+      <tr>
+        <td class="lbl">会议时间</td>
+        <td class="fill" colspan="3">
+          <div class="date-inline">
+            <input type="date" value="2026-07-10">
+            <input type="text" class="time-input" placeholder="开始">
+            <span class="sep">&ndash;</span>
+            <input type="text" class="time-input" placeholder="结束">
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">会议地点</td>
+        <td class="fill" colspan="3"><input type="text" placeholder="会议详细地址（如：北京CMIT office S1212庐山会议室）"></td>
+      </tr>
+      <tr>
+        <td class="lbl">会议受众</td>
+        <td class="fill"><input type="text" placeholder="参会人员范围"></td>
+        <td class="lbl">会议规模</td>
+        <td class="fill"><input type="text" placeholder="如 50人"></td>
+      </tr>
+      <tr>
+        <td class="lbl">会议背景</td>
+        <td class="fill" colspan="3"><textarea placeholder="描述活动的背景和目的..."></textarea></td>
+      </tr>
+      <tr>
+        <td class="lbl">承办单位</td>
+        <td class="fill" colspan="3"><input type="text" placeholder="承办单位名称"></td>
+      </tr>
+      <tr>
+        <td class="lbl">会议属性</td>
+        <td class="fill" colspan="3"><div class="cb-grid">
+          <span class="cb-label"><input type="checkbox"> 公司客户</span>
+          <span class="cb-label"><input type="checkbox"> 顶级高校</span>
+          <span class="cb-label"><input type="checkbox"> 政府权威</span>
+          <span class="cb-label"><input type="checkbox"> 其他</span>
+        </div></td>
+      </tr>
+      <tr>
+        <td class="lbl">渠道关系</td>
+        <td class="fill" colspan="3"><div class="cb-grid">
+          <span class="cb-label"><input type="checkbox"> 微软内部</span>
+          <span class="cb-label"><input type="checkbox"> 学校关系</span>
+          <span class="cb-label"><input type="checkbox"> 政府关系</span>
+          <span class="cb-label"><input type="checkbox"> 其他关系</span>
+        </div></td>
+      </tr>
+      <tr>
+        <td class="lbl">审批流程</td>
+        <td class="fill" colspan="3"><div class="cb-grid">
+          <span class="cb-label"><input type="checkbox"> 微软PR</span>
+          <span class="cb-label"><input type="checkbox"> 微软CELA</span>
+          <span class="cb-label"><input type="checkbox"> 无需批复</span>
+        </div></td>
+      </tr>
+      <tr>
+        <td class="lbl">参会形式</td>
+        <td class="fill" colspan="3"><div class="cb-grid">
+          <span class="cb-label"><input type="checkbox"> 现场参加</span>
+          <span class="cb-label"><input type="checkbox"> 线上参加</span>
+          <span class="cb-label"><input type="checkbox"> 录制视频参加</span>
+        </div></td>
+      </tr>
+      <tr>
+        <td class="lbl">宣传安排</td>
+        <td class="fill" colspan="3"><div class="cb-grid">
+          <span class="cb-label"><input type="checkbox"> 新闻/短视频</span>
+          <span class="cb-label"><input type="checkbox"> 现场直播</span>
+          <span class="cb-label"><input type="checkbox"> 媒体采访</span>
+          <span class="cb-label"><input type="checkbox"> 不公开</span>
+        </div></td>
+      </tr>
+      <tr>
+        <td class="lbl">相关费用</td>
+        <td class="fill" colspan="3"><div class="cb-grid">
+          <span class="cb-label"><input type="checkbox"> 微软T&E</span>
+          <span class="cb-label"><input type="checkbox"> 主办方负责</span>
+          <span class="cb-label"><input type="checkbox"> 劳务费</span>
+        </div></td>
+      </tr>
+      <tr>
+        <td class="lbl">备注</td>
+        <td class="fill" colspan="3"><textarea placeholder="需要额外告知的信息..."></textarea></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ 二、活动日程 & 要员简介 ============ -->
+<div class="section s2 open" id="sec2">
+  <div class="section-header" onclick="toggleSection('sec2')">
+    <span class="section-num">2</span><span class="section-title">活动日程 & 要员简介</span><span class="section-arrow">&gt;</span>
+  </div>
+  <div class="section-body">
+    <table class="tmpl-table">
+      <colgroup>
+        <col style="width:100px;"><col>
+      </colgroup>
+      <tr>
+        <td class="lbl">日程</td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" id="scheduleEditor"></div></td>
+      </tr>
+      <tr>
+        <td class="lbl">要员简介</td>
+        <td class="fill" style="padding:4px;">
+          <table class="vip-table">
+            <thead><tr><th>姓名</th><th>职务/公司</th><th>简介/近期动态</th></tr></thead>
+            <tbody id="vipTable">
+              <tr>
+                <td><input type="text" placeholder="输入姓名"></td>
+                <td><input type="text" placeholder="职务/公司"></td>
+                <td style="font-size:11px;color:#94a3b8;background:#fafafa;">根据提供的要员信息，自动搜索总结简介及近期动态，500字以内</td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="add-btn" onclick="addVipRow()">+ 添加要员</button>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ 三、会议准备 ============ -->
+<div class="section s3 open" id="sec3">
+  <div class="section-header" onclick="toggleSection('sec3')">
+    <span class="section-num">3</span><span class="section-title">会议准备</span><span class="section-arrow">&gt;</span>
+  </div>
+  <div class="section-body">
+    <table class="tmpl-table">
+      <colgroup>
+        <col style="width:100px;"><col><col style="width:100px;"><col>
+      </colgroup>
+      <tr>
+        <td class="lbl">演讲时长</td>
+        <td class="fill"><input type="text" placeholder="如 30分钟"></td>
+        <td class="lbl">演讲时间</td>
+        <td class="fill">
+          <div class="date-inline">
+            <input type="date" value="2026-07-10">
+            <input type="text" class="time-input" placeholder="开始">
+            <span class="sep">&ndash;</span>
+            <input type="text" class="time-input" placeholder="结束">
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">演讲主题</td>
+        <td class="fill"><input type="text" placeholder="演讲的主题"></td>
+        <td class="lbl">内容梗概</td>
+        <td class="fill"><input type="text" placeholder="简要描述演讲内容"></td>
+      </tr>
+      <tr>
+        <td class="lbl">PPT要求</td>
+        <td class="fill" colspan="3">
+          <span class="cb-label"><input type="checkbox"> 专用模板</span>
+          <span class="cb-label"><input type="checkbox"> 无模板</span>
+          <span class="cb-label"><input type="checkbox"> 16:9比例</span>
+          <span class="cb-label"><input type="checkbox"> 特殊比例</span>
+          <span class="cb-label"><input type="checkbox"> 中文写作</span>
+          <span class="cb-label"><input type="checkbox"> 英文写作</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">演讲模式</td>
+        <td class="fill" colspan="3">
+          <span class="cb-label"><input type="checkbox"> 正规演讲</span>
+          <span class="cb-label"><input type="checkbox"> 自由演讲</span>
+          <span class="cb-label"><input type="checkbox"> 单独播放</span>
+          <span class="cb-label"><input type="checkbox"> 合并播放</span>
+          <span class="cb-label"><input type="checkbox"> 中文演讲</span>
+          <span class="cb-label"><input type="checkbox"> 英文演讲</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">参考资料</td>
+        <td class="fill" colspan="3">
+          <span class="hint">允许粘贴文本、或上传附件（图片、Word、Excel、PPT、PDF等）</span>
+          <div class="add-row"><button class="add-btn" onclick="alert('选择文件')">+ 上传附件</button></div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">待办事项</td>
+        <td class="fill" colspan="3">
+          <div id="todoList">
+            <div class="add-row"><button class="add-btn" onclick="addTodo()">+ 添加待办</button></div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">定稿PPT</td>
+        <td class="fill" colspan="3">
+          <span class="hint">允许上传附件</span>
+          <div class="add-row"><button class="add-btn" onclick="alert('选择文件')">+ 上传附件</button></div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">设备状况</td>
+        <td class="fill" colspan="3">
+          <span class="cb-label"><input type="checkbox"> 活动设备</span>
+          <span class="cb-label"><input type="checkbox"> 自备设备</span>
+          <span class="cb-label"><input type="checkbox"> 有PowerPoint</span>
+          <span class="cb-label"><input type="checkbox"> 有WPS或其他</span>
+          <span class="cb-label"><input type="checkbox"> 同步字体</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">演讲环境</td>
+        <td class="fill" colspan="3">
+          <span class="cb-label"><input type="checkbox"> 演讲桌</span>
+          <span class="cb-label"><input type="checkbox"> 白板</span>
+          <span class="cb-label"><input type="checkbox"> 麦克风</span>
+          <span class="cb-label"><input type="checkbox"> 翻页器</span>
+          <span class="cb-label"><input type="checkbox"> 转换线</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">参会注册</td>
+        <td class="fill" colspan="3">
+          <span class="cb-label"><input type="checkbox"> 韦总信息</span>
+          <span class="cb-label"><input type="checkbox"> 太太信息</span>
+          <span class="cb-label"><input type="checkbox"> 尾号57汽车</span>
+          <span class="cb-label"><input type="checkbox"> 尾号68汽车</span>
+          <span class="cb-label"><input type="checkbox"> 无需报备</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">对接信息</td>
+        <td class="fill" colspan="3"><input type="text" placeholder="联系人电话"></td>
+      </tr>
+      <tr>
+        <td class="lbl">备注</td>
+        <td class="fill" colspan="3"><textarea placeholder="准备工作的补充说明..."></textarea></td>
+      </tr>
+      <tr>
+        <td class="lbl">行车路线</td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+        <td class="lbl">会场路线</td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+      </tr>
+      <tr>
+        <td class="lbl">现场照片</td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+        <td class="lbl">试播视频</td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ 四、出发准备 ============ -->
+<div class="section s4 open" id="sec4">
+  <div class="section-header" onclick="toggleSection('sec4')">
+    <span class="section-num">4</span><span class="section-title">出发准备</span><span class="section-arrow">&gt;</span>
+  </div>
+  <div class="section-body">
+    <table class="tmpl-table">
+      <colgroup>
+        <col style="width:100px;"><col><col style="width:100px;"><col>
+      </colgroup>
+      <tr>
+        <td class="lbl">去程交通</td>
+        <td class="fill">
+          <div class="radio-inline" id="departureTransport">
+            <label class="radio-pill" onclick="selectPill(this)"><input type="radio" name="goTransport"> 飞机</label>
+            <label class="radio-pill" onclick="selectPill(this)"><input type="radio" name="goTransport"> 火车</label>
+          </div>
+        </td>
+        <td class="lbl">回程交通</td>
+        <td class="fill">
+          <div class="radio-inline" id="returnTransport">
+            <label class="radio-pill" onclick="selectPill(this)"><input type="radio" name="backTransport"> 飞机</label>
+            <label class="radio-pill" onclick="selectPill(this)"><input type="radio" name="backTransport"> 火车</label>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">班次信息</td>
+        <td class="fill"><input type="text" placeholder="航班号/车次 + 时间"></td>
+        <td class="lbl">班次信息</td>
+        <td class="fill"><input type="text" placeholder="航班号/车次 + 时间"></td>
+      </tr>
+      <tr>
+        <td class="lbl">酒店名称</td>
+        <td class="fill"><input type="text" placeholder="酒店名称"></td>
+        <td class="lbl">预订确认号</td>
+        <td class="fill"><input type="text" placeholder="预订确认号" style="white-space:nowrap;"></td>
+      </tr>
+      <tr>
+        <td class="lbl">酒店地址</td>
+        <td class="fill"><input type="text" placeholder="酒店详细地址"></td>
+        <td class="lbl">早餐</td>
+        <td class="fill">
+          <span class="cb-label"><input type="checkbox"> 有</span>
+          <span class="cb-label"><input type="checkbox"> 无</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">衣着要求</td>
+        <td class="fill" colspan="3">
+          <span class="cb-label"><input type="checkbox"> 正装领带</span>
+          <span class="cb-label"><input type="checkbox"> 商务休闲</span>
+          <span class="cb-label"><input type="checkbox"> 无要求</span>
+          <span class="cb-label"><input type="checkbox"> 其他</span>
+          <input type="text" placeholder="备注内容" style="width:160px;border:1px solid #c8ccd4!important;border-radius:4px!important;padding:4px 8px!important;margin-left:8px;">
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">特殊携带</td>
+        <td class="fill" colspan="3"><input type="text" placeholder="如 badge、身份证等"></td>
+      </tr>
+      <tr>
+        <td class="lbl">目的地天气</td>
+        <td class="fill" colspan="3">
+          <div class="auto-card weather">
+            <div class="ac-content" id="weatherContent">待查询</div>
+            <div class="ac-meta">会议地点、时间确认后可自动查询</div>
+            <button class="refresh-btn" onclick="refreshWeather()" style="margin-top:4px;">&#8635; 刷新</button>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">出行提示</td>
+        <td class="fill" colspan="3">
+          <div class="auto-card traffic">
+            <div class="ac-content" id="trafficContent">待查询</div>
+            <div class="ac-meta">会议地点、时间确认后可自动查询</div>
+            <button class="refresh-btn" onclick="refreshTraffic()" style="margin-top:4px;">&#8635; 刷新</button>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ 五、会后收尾 ============ -->
+<div class="section s5 open" id="sec5">
+  <div class="section-header" onclick="toggleSection('sec5')">
+    <span class="section-num">5</span><span class="section-title">会后收尾</span><span class="section-arrow">&gt;</span>
+  </div>
+  <div class="section-body">
+    <table class="tmpl-table">
+      <colgroup>
+        <col style="width:130px;"><col>
+      </colgroup>
+      <tr>
+        <td class="lbl">照片存档</td>
+        <td class="fill"><input type="url" placeholder="允许放链接 https://..."></td>
+      </tr>
+      <tr>
+        <td class="lbl">录像存档</td>
+        <td class="fill"><input type="url" placeholder="允许放链接 https://..."></td>
+      </tr>
+      <tr>
+        <td class="lbl">发言稿完整版</td>
+        <td class="fill"><input type="text" placeholder="允许放链接，或上传附件"></td>
+      </tr>
+      <tr>
+        <td class="lbl">发言稿整理版</td>
+        <td class="fill"><input type="text" placeholder="允许放链接，或上传附件"></td>
+      </tr>
+      <tr>
+        <td class="lbl">宣传发布内容</td>
+        <td class="fill"><input type="text" placeholder="允许放链接，或上传附件"></td>
+      </tr>
+      <tr>
+        <td class="lbl">文档分享</td>
+        <td class="fill">
+          <span class="cb-label"><input type="checkbox"> 有</span>
+          <span class="cb-label"><input type="checkbox"> 无</span>
+          <span style="color:#c8ccd4;margin:0 12px;">|</span>
+          <span class="cb-label"><input type="checkbox"> PPT</span>
+          <span class="cb-label"><input type="checkbox"> PDF</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">备注</td>
+        <td class="fill"><textarea placeholder="单元格大小随内容多少自动调整"></textarea></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottombar">
+  <span class="last-saved" id="saveIndicator">新建活动 — 尚未保存</span>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-ghost">取消</button>
+    <button class="btn btn-share" onclick="openShareModal()">生成分享链接</button>
+    <button class="btn btn-primary" onclick="autoSave()">保存</button>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal">
+    <h3>分享此活动</h3>
+    <p>链接固定不变，内容更新后对方刷新即可看到最新版本。</p>
+    <div class="link-box">
+      <input type="text" readonly value="https://claire-calendar.github.io/events/event-view" id="shareLinkInput">
+      <button class="btn-copy" onclick="copyShareUrl()">复制链接</button>
+    </div>
+    <div class="note">链接永久有效。你更新内容后，访问者刷新页面即可看到最新信息。</div>
+    <button class="btn btn-ghost" style="margin-top:16px;width:100%;" onclick="closeShareModal()">关闭</button>
+  </div>
+</div>
+
+<script>
+function toggleSection(id) { document.getElementById(id).classList.toggle('open'); }
+
+function selectPill(el) {
+  el.parentElement.querySelectorAll('.radio-pill').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('active');
+  el.querySelector('input').checked = true;
+}
+
+function addVipRow() {
+  var tbody = document.getElementById('vipTable');
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="text" placeholder="输入姓名"></td><td><input type="text" placeholder="职务/公司"></td><td style="font-size:11px;color:#94a3b8;background:#fafafa;">根据提供的要员信息，自动搜索总结简介及近期动态，500字以内</td>';
+  tbody.appendChild(tr);
+}
+
+function addTodo() {
+  var list = document.getElementById('todoList');
+  var div = document.createElement('div');
+  div.className = 'todo-item';
+  div.innerHTML = '<input type="checkbox" class="todo-check" onchange="this.parentElement.classList.toggle(\'done\',this.checked)"><input class="todo-text" placeholder="输入待办事项..."><span class="todo-del" onclick="this.parentElement.remove()">x</span>';
+  list.insertBefore(div, list.querySelector('.add-row'));
+}
+
+function openShareModal() { document.getElementById('shareModal').classList.add('show'); }
+function closeShareModal() { document.getElementById('shareModal').classList.remove('show'); }
+function copyShareUrl() {
+  document.getElementById('shareLinkInput').select();
+  navigator.clipboard.writeText(document.getElementById('shareLinkInput').value);
+  var b = document.querySelector('.btn-copy'); b.textContent = '已复制!'; setTimeout(function(){ b.textContent = '复制链接'; }, 2000);
+}
+
+function autoSave() {
+  document.getElementById('saveIndicator').textContent = '上次保存：' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+  document.getElementById('saveIndicator').style.color = '#10b981';
+  document.getElementById('topBadge').textContent = '已保存';
+  document.getElementById('topBadge').className = 'badge badge-ready';
+  var btns = document.querySelectorAll('.btn-primary');
+  btns.forEach(function(b){ b.textContent = '已保存 ✓'; b.style.background = '#10b981'; setTimeout(function(){ b.textContent = '保存'; b.style.background = '#2563eb'; }, 1500); });
+}
+
+function refreshWeather() {
+  document.getElementById('weatherContent').innerHTML = '北京7月10日（周五）阴转雷阵雨，24-32℃，东南风微风，降水概率约70%。';
+  document.getElementById('weatherContent').nextElementSibling.textContent = '更新于刚刚 | 来源：中国天气网';
+}
+function refreshTraffic() {
+  document.getElementById('trafficContent').innerHTML = '北京城区7月10日限行尾号5和0，有大型活动，有交通管制。';
+  document.getElementById('trafficContent').nextElementSibling.textContent = '更新于刚刚 | 来源：北京交管局';
+}
+
+// Checkbox styling
+function initCheckboxes() {
+  document.querySelectorAll('.cb-label input[type="checkbox"]').forEach(function(cb){
+    cb.addEventListener('change', function(){ this.closest('.cb-label').classList.toggle('checked', this.checked); });
+    if(cb.checked) cb.closest('.cb-label').classList.add('checked');
+  });
+}
+
+// Rich editor paste image support
+document.querySelectorAll('.rich-editor').forEach(function(ed){
+  ed.addEventListener('paste', function(e){
+    var items = (e.clipboardData||window.event.clipboardData).items;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image')!==-1){
+        e.preventDefault();
+        var r=new FileReader();
+        r.onload=function(ev){ var img=document.createElement('img'); img.src=ev.target.result; img.style.maxWidth='100%'; ed.appendChild(img); };
+        r.readAsDataURL(items[i].getAsFile()); break;
+      }
+    }
+  });
+});
+
+// Track unsaved changes
+document.querySelectorAll('.tmpl-table input[type="text"], .tmpl-table input[type="url"], .tmpl-table textarea').forEach(function(el){
+  el.addEventListener('input', function(){
+    document.getElementById('saveIndicator').textContent = '未保存的更改...';
+    document.getElementById('saveIndicator').style.color = '#eab308';
+  });
+});
+
+initCheckboxes();
+</script>
+</body>
+</html>

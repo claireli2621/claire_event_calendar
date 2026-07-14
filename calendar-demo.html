@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>活动日历 — Claire 会议管理</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #f0f2f5; color: #333; }
+.header { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 20px; font-weight: 500; }
+.header h1 span { color: #e94560; }
+.btn { padding: 8px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-family: inherit; }
+.btn-primary { background: #e94560; color: #fff; }
+.btn-primary:hover { background: #d63850; }
+.btn-outline { background: transparent; color: #e94560; border: 1px solid #e94560; margin-right: 12px; }
+.btn-outline:hover { background: rgba(233,69,96,0.08); }
+
+.container { max-width: 1100px; margin: 24px auto; padding: 0 24px; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.month-nav { display: flex; align-items: center; gap: 16px; }
+.month-nav button { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 16px; }
+.month-nav button:hover { background: #f5f5f5; }
+.month-nav h2 { font-size: 22px; font-weight: 500; min-width: 140px; text-align: center; }
+
+.calendar { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: #fafafa; border-bottom: 1px solid #eee; }
+.weekdays div { padding: 12px; text-align: center; font-size: 13px; color: #888; font-weight: 500; }
+.weekdays div:first-child, .weekdays div:last-child { color: #e94560; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); }
+.day { min-height: 100px; padding: 8px; border-right: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0; position: relative; }
+.day:nth-child(7n) { border-right: none; }
+.day.other-month { background: #fafafa; }
+.day .date { font-size: 13px; color: #aaa; margin-bottom: 4px; }
+.day.current-month .date { color: #333; font-weight: 500; }
+.day.today { background: #fff8f0; }
+.day.today .date { color: #e94560; font-weight: 700; }
+.event-card { background: #e94560; color: #fff; padding: 5px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.event-card:hover { background: #d63850; }
+.event-card.caipiao { background: #0f3460; }
+.event-card.caipiao:hover { background: #0a2540; }
+
+.panel { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-top: 20px; }
+.panel-header { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.panel-header h3 { font-size: 16px; font-weight: 500; }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; margin-left: 8px; }
+.tag-warning { background: #fff3cd; color: #856404; }
+.panel-body { padding: 24px; }
+.field-row { display: flex; margin-bottom: 14px; align-items: flex-start; }
+.field-label { width: 120px; font-size: 13px; color: #888; flex-shrink: 0; padding-top: 6px; }
+.field-value { flex: 1; font-size: 14px; padding: 6px 0; }
+.field-value input, .field-value textarea { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; }
+.field-value textarea { min-height: 60px; resize: vertical; }
+.panel-actions { padding: 16px 24px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; }
+.btn-secondary { background: #f0f0f0; color: #333; }
+.btn-secondary:hover { background: #e0e0e0; }
+.btn-share { background: #0f3460; color: #fff; }
+.btn-share:hover { background: #0a2540; }
+.share-url { background: #f8f9fa; border: 1px dashed #ccc; padding: 8px 14px; border-radius: 6px; font-size: 13px; color: #666; word-break: break-all; }
+.copy-hint { font-size: 12px; color: #28a745; margin-top: 6px; display: none; }
+.copy-hint.show { display: block; }
+.empty-hint { text-align: center; color: #bbb; padding: 40px; font-size: 14px; }
+
+@media (max-width: 768px) {
+  .day { min-height: 70px; }
+  .container { padding: 0 12px; }
+  .header { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Claire <span>活动日历</span></h1>
+  <div>
+    <button class="btn btn-outline" onclick="refreshWeather()">刷新天气/交通</button>
+    <button class="btn btn-primary" onclick="showNewForm()">+ 新建活动</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="toolbar">
+    <div class="month-nav">
+      <button>&lt;</button>
+      <h2>2026年 7月</h2>
+      <button>&gt;</button>
+    </div>
+    <span style="font-size:13px;color:#888;">点击活动名称查看/编辑详情</span>
+  </div>
+
+  <div class="calendar" id="calendar"></div>
+
+  <div class="panel" id="detailPanel" style="display:none;">
+    <div class="panel-header">
+      <h3 id="panelTitle">活动详情 <span class="tag tag-warning" id="weatherBadge" style="display:none;">天气已更新</span></h3>
+      <button class="btn btn-share" onclick="copyShareLink()">生成分享链接</button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+    <div class="panel-actions">
+      <div id="shareArea" style="flex:1;display:none;">
+        <div class="share-url" id="shareUrl"></div>
+        <div class="copy-hint" id="copyHint">链接已复制到剪贴板！内容更新后链接不变，对方刷新即可看到最新内容。</div>
+      </div>
+      <button class="btn btn-secondary" onclick="closePanel()">关闭</button>
+      <button class="btn btn-primary" onclick="saveEvent()">保存</button>
+    </div>
+  </div>
+
+  <div class="empty-hint" id="emptyHint" style="display:none;">点击日历上高亮的活动名称查看详情，或点击「新建活动」创建新活动</div>
+</div>
+
+<script>
+// Event data (synced with events.json)
+let events = [
+  {
+    id: 'qianyuan-review-20260710',
+    name: '"乾元"review',
+    date: '2026-07-10',
+    time: '15:00-16:00',
+    location: '北京CMIT office S1212庐山会议室',
+    audience: 'AI Lab Team',
+    scale: '7人',
+    expectation: '汇报当前"乾元"开发状况成果',
+    weather: '北京7月10日（周五）阴转雷阵雨，24-32℃，东南风微风，降水概率约70%。（更新于7月7日）',
+    traffic: '北京城区7月10日限行尾号5和0，有大型活动（鸟巢演唱会等），有交通管制（朝阳区管庄路施工禁行）。（更新于7月7日）',
+    shareLink: 'https://claire-calendar.github.io/events/qianyuan-review-20260710'
+  },
+  {
+    id: 'caipiao-lingjiang-20260717',
+    name: '彩票中心领奖会议',
+    date: '2026-07-17',
+    time: '14:00-15:00',
+    location: '北京市体彩中心',
+    audience: '',
+    scale: '2人',
+    expectation: '',
+    weather: '暂无预报数据（更新于7月6日）',
+    traffic: '暂无交通信息（更新于7月7日）',
+    shareLink: 'https://claire-calendar.github.io/events/caipiao-lingjiang-20260717'
+  }
+];
+
+let selectedEventId = null;
+
+function buildCalendar() {
+  const cal = document.getElementById('calendar');
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  let html = '<div class="weekdays">';
+  weekdays.forEach((d, i) => { html += `<div>${d}</div>`; });
+  html += '</div><div class="days">';
+
+  const firstDay = new Date(2026, 6, 1).getDay(); // July 2026 starts on Wednesday (day 3)
+  const daysInMonth = 31;
+
+  // Previous month padding
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div class="day other-month"><div class="date"></div></div>';
+  }
+
+  // Current month
+  const today = '2026-07-07';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `2026-07-${String(d).padStart(2, '0')}`;
+    const isToday = dateStr === today;
+    const dayEvents = events.filter(e => e.date === dateStr);
+    html += `<div class="day current-month${isToday ? ' today' : ''}">`;
+    html += `<div class="date">${d}${isToday ? ' 今天' : ''}</div>`;
+    dayEvents.forEach(ev => {
+      const cls = ev.id.includes('caipiao') ? 'caipiao' : '';
+      html += `<div class="event-card ${cls}" onclick="openEvent('${ev.id}')">${ev.name}</div>`;
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  cal.innerHTML = html;
+}
+
+function openEvent(id) {
+  selectedEventId = id;
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+
+  document.getElementById('panelTitle').innerHTML = `${ev.name} <span class="tag tag-warning" id="weatherBadge" style="${ev.weather && !ev.weather.includes('暂无') ? '' : 'display:none'}">天气已更新</span>`;
+  document.getElementById('detailPanel').style.display = 'block';
+  document.getElementById('emptyHint').style.display = 'none';
+  document.getElementById('shareArea').style.display = 'none';
+
+  document.getElementById('panelBody').innerHTML = `
+    <div class="field-row"><div class="field-label">活动名称</div><div class="field-value"><input id="fName" value="${esc(ev.name)}"></div></div>
+    <div class="field-row"><div class="field-label">日期</div><div class="field-value"><input id="fDate" type="date" value="${ev.date}"></div></div>
+    <div class="field-row"><div class="field-label">时间</div><div class="field-value"><input id="fTime" value="${esc(ev.time)}" placeholder="如 15:00-16:00"></div></div>
+    <div class="field-row"><div class="field-label">地点</div><div class="field-value"><input id="fLocation" value="${esc(ev.location)}"></div></div>
+    <div class="field-row"><div class="field-label">受众</div><div class="field-value"><input id="fAudience" value="${esc(ev.audience)}"></div></div>
+    <div class="field-row"><div class="field-label">规模</div><div class="field-value"><input id="fScale" value="${esc(ev.scale)}"></div></div>
+    <div class="field-row"><div class="field-label">会议预期</div><div class="field-value"><textarea id="fExpectation">${esc(ev.expectation)}</textarea></div></div>
+    <div class="field-row"><div class="field-label">目的地天气</div><div class="field-value" style="color:#0f3460;">${esc(ev.weather || '') || '<span style="color:#ccc;">待查询</span>'}</div></div>
+    <div class="field-row"><div class="field-label">出行提示</div><div class="field-value" style="color:#0f3460;">${esc(ev.traffic || '') || '<span style="color:#ccc;">待查询</span>'}</div></div>
+    <div class="field-row"><div class="field-label">附件</div><div class="field-value"><input type="file" multiple style="font-size:13px;"><br><span style="font-size:12px;color:#999;">支持 PDF、Word、图片等格式</span></div></div>
+  `;
+
+  document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
+}
+
+function saveEvent() {
+  const ev = events.find(e => e.id === selectedEventId);
+  if (!ev) return;
+  ev.name = document.getElementById('fName').value;
+  ev.date = document.getElementById('fDate').value;
+  ev.time = document.getElementById('fTime').value;
+  ev.location = document.getElementById('fLocation').value;
+  ev.audience = document.getElementById('fAudience').value;
+  ev.scale = document.getElementById('fScale').value;
+  ev.expectation = document.getElementById('fExpectation').value;
+  buildCalendar();
+  alert('已保存！\n\n提示：在实际部署中，修改会自动同步到 events.json 并重新部署到网页。\n你对我说的修改内容，我也会同步更新到系统中。');
+}
+
+function closePanel() {
+  document.getElementById('detailPanel').style.display = 'none';
+  selectedEventId = null;
+}
+
+function copyShareLink() {
+  const ev = events.find(e => e.id === selectedEventId);
+  if (!ev) return;
+  const area = document.getElementById('shareArea');
+  document.getElementById('shareUrl').textContent = ev.shareLink;
+  area.style.display = 'block';
+  navigator.clipboard.writeText(ev.shareLink).then(() => {
+    document.getElementById('copyHint').classList.add('show');
+  }).catch(() => {});
+}
+
+function showNewForm() {
+  alert('新建活动表单\n\n在实际系统中，这里会打开一个空白模板表单，\n字段与 Word 模板一致。\n填写后保存即出现在日历上。');
+}
+
+function refreshWeather() {
+  if (!selectedEventId) { alert('请先在日历上点击一个活动，然后再刷新天气。'); return; }
+  alert('天气/交通刷新\n\n在实际系统中，点击后会：\n1. 自动查询目的地天气和交通信息\n2. 更新到当前活动的对应字段\n3. 页面上的信息实时更新');
+}
+
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+buildCalendar();
+</script>
+</body>
+</html>
