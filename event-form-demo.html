@@ -190,6 +190,15 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
         <td class="fill"><input type="text" id="evScale" placeholder="如 50人"></td>
       </tr>
       <tr>
+        <td class="lbl">活动分类</td>
+        <td class="fill" colspan="3" id="categoryCell">
+          <span class="cb-label"><input type="radio" name="evCategory" value="internal" onchange="updateCategoryColor()"> 内部会议</span>
+          <span class="cb-label"><input type="radio" name="evCategory" value="external" onchange="updateCategoryColor()"> 外部活动</span>
+          <span class="cb-label"><input type="radio" name="evCategory" value="government" onchange="updateCategoryColor()"> 政府交流</span>
+          <span class="cb-label"><input type="radio" name="evCategory" value="other" onchange="updateCategoryColor()"> 其他</span>
+        </td>
+      </tr>
+      <tr>
         <td class="lbl">会议背景</td>
         <td class="fill" colspan="3"><textarea id="evBackground" placeholder="描述活动的背景和目的..."></textarea></td>
       </tr>
@@ -619,13 +628,19 @@ function autoSave() {
   var t1 = document.getElementById('evTimeStart').value.trim();
   var t2 = document.getElementById('evTimeEnd').value.trim();
   var timeDisplay = (t1 && t2) ? (t1 + '-' + t2) : (t1 || t2 || '');
+  var category = getSelectedCategory();
 
-  var id = dateVal ? ('event-' + dateVal + '-' + pinyinSlug(name)) : ('event-' + pinyinSlug(name));
+  // Determine if editing existing
+  var params = new URLSearchParams(window.location.search);
+  var editId = params.get('edit');
+  var id = editId || (dateVal ? ('event-' + dateVal + '-' + pinyinSlug(name)) : ('event-' + pinyinSlug(name)));
+
   var dateCN = formatDateChinese(dateVal);
   var timeCN = dateCN ? (dateCN + ' ' + timeDisplay) : timeDisplay;
 
   var ev = {
     id: id, name: name,
+    category: category,
     created: new Date().toISOString().slice(0,10), updated: new Date().toISOString(),
     section1_basic_info: {
       "会议名称": name,
@@ -642,11 +657,13 @@ function autoSave() {
     section5_wrapup: {"照片存档":"","录像存档":"","发言稿完整版":"","发言稿整理版":"","活动宣传发布内容":"","主办方是否索取文档分享版":""}
   };
 
-  // Save to localStorage always
+  // Save to localStorage
   var stored = {};
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
-  stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:'', traffic:'', updated:new Date().toISOString()};
+  stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, category:category, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:'', traffic:'', updated:new Date().toISOString()};
   localStorage.setItem('claire_my_events', JSON.stringify(stored));
+  // Clear draft
+  localStorage.removeItem('claire_form_draft');
 
   // Try GitHub API publish
   if (GITHUB_TOKEN) {
@@ -654,6 +671,17 @@ function autoSave() {
   } else {
     promptForToken(function(){ publishToGitHub(ev, name); });
   }
+}
+
+function getSelectedCategory() {
+  var sel = document.querySelector('input[name="evCategory"]:checked');
+  return sel ? sel.value : '';
+}
+
+function updateCategoryColor() {
+  var cat = getSelectedCategory();
+  var colors = {internal:'#2563eb', external:'#10b981', government:'#f59e0b', other:'#6366f1'};
+  document.getElementById('topBadge').style.background = colors[cat] || '#334155';
 }
 
 function promptForToken(callback) {
@@ -693,7 +721,7 @@ function publishToGitHub(ev, name) {
     .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(){
       updateSaveUI(name, true);
-      alert('活动「' + name + '」已发布！\n\n1-2 分钟后刷新日历首页即可看到。');
+      setTimeout(function(){ window.location.href = 'index.html'; }, 1200);
     })
     .catch(function(err){
       updateSaveUI(name, false);
@@ -769,6 +797,50 @@ document.querySelectorAll('.tmpl-table input[type="text"], .tmpl-table input[typ
     document.getElementById('saveIndicator').style.color = '#eab308';
   });
 });
+
+// ---- Auto-save draft every 30 seconds ----
+function saveDraft() {
+  var draft = {
+    name: document.getElementById('evName').value,
+    date: document.getElementById('evDate').value,
+    timeStart: document.getElementById('evTimeStart').value,
+    timeEnd: document.getElementById('evTimeEnd').value,
+    location: document.getElementById('evLocation').value,
+    audience: document.getElementById('evAudience').value,
+    scale: document.getElementById('evScale').value,
+    background: document.getElementById('evBackground').value,
+    category: getSelectedCategory()
+  };
+  if (draft.name || draft.date || draft.location) {
+    localStorage.setItem('claire_form_draft', JSON.stringify(draft));
+  }
+}
+setInterval(saveDraft, 30000);
+
+// ---- Restore draft on load ----
+(function restoreDraft() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('edit')) return; // Don't restore draft if editing existing
+  try {
+    var draft = JSON.parse(localStorage.getItem('claire_form_draft'));
+    if (draft) {
+      if (draft.name) document.getElementById('evName').value = draft.name;
+      if (draft.date) document.getElementById('evDate').value = draft.date;
+      if (draft.timeStart) document.getElementById('evTimeStart').value = draft.timeStart;
+      if (draft.timeEnd) document.getElementById('evTimeEnd').value = draft.timeEnd;
+      if (draft.location) document.getElementById('evLocation').value = draft.location;
+      if (draft.audience) document.getElementById('evAudience').value = draft.audience;
+      if (draft.scale) document.getElementById('evScale').value = draft.scale;
+      if (draft.background) document.getElementById('evBackground').value = draft.background;
+      if (draft.category) {
+        var radio = document.querySelector('input[name="evCategory"][value="' + draft.category + '"]');
+        if (radio) { radio.checked = true; updateCategoryColor(); }
+      }
+      document.getElementById('saveIndicator').textContent = '已恢复未保存的草稿';
+      document.getElementById('saveIndicator').style.color = '#2563eb';
+    }
+  } catch(e) {}
+})();
 
 // ---- Load event for editing (via ?edit=event-id) ----
 (function initEditMode() {

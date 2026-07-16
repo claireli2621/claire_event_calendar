@@ -35,7 +35,39 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
 
 .event-card { background: #2563eb; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .event-card:hover { opacity: 0.85; }
+.event-card.cat-internal { background: #2563eb; }
+.event-card.cat-external { background: #10b981; }
+.event-card.cat-government { background: #f59e0b; }
+.event-card.cat-other { background: #6366f1; }
 .event-card.type-b { background: #475569; }
+
+/* List view */
+.list-view { display: none; }
+.list-view.show { display: block; }
+.calendar.hide { display: none; }
+.list-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; background: #fff; }
+.list-item:hover { background: #f8fafc; }
+.list-item:first-child { border-radius: 6px 6px 0 0; }
+.list-item:last-child { border-radius: 0 0 6px 6px; }
+.list-color { width: 4px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+.list-color.cat-internal { background: #2563eb; }
+.list-color.cat-external { background: #10b981; }
+.list-color.cat-government { background: #f59e0b; }
+.list-color.cat-other { background: #6366f1; }
+.list-info { flex: 1; }
+.list-info .li-name { font-size: 14px; font-weight: 500; color: #1e293b; }
+.list-info .li-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+.list-date { text-align: right; font-size: 13px; color: #1e293b; font-weight: 500; min-width: 80px; }
+.list-empty { text-align: center; padding: 32px; color: #94a3b8; font-size: 13px; }
+.view-toggle { display: flex; gap: 0; margin-left: auto; }
+.view-toggle button { padding: 5px 14px; border: 1px solid #c8ccd4; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; color: #64748b; }
+.view-toggle button:first-child { border-radius: 5px 0 0 5px; }
+.view-toggle button:last-child { border-radius: 0 5px 5px 0; }
+.view-toggle button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+/* Delete button */
+.btn-danger { background: #fff; color: #dc2626; border: 1px solid #fecaca; }
+.btn-danger:hover { background: #fef2f2; }
 
 /* Detail panel */
 .panel { background: #fff; border-radius: 6px; border: 1px solid #d5d8dc; margin-top: 18px; box-shadow: 0 1px 6px rgba(0,0,0,0.04); display: none; }
@@ -83,9 +115,14 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
     <button onclick="changeMonth(-1)">&lt;</button>
     <h2 id="monthTitle">2026年 7月</h2>
     <button onclick="changeMonth(1)">&gt;</button>
+    <div class="view-toggle">
+      <button id="btnCalendar" class="active" onclick="switchView('calendar')">日历</button>
+      <button id="btnList" onclick="switchView('list')">列表</button>
+    </div>
   </div>
 
   <div class="calendar" id="calendar"></div>
+  <div class="list-view" id="listView"></div>
 
   <div class="panel" id="detailPanel">
     <div class="panel-header">
@@ -100,6 +137,7 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
       <div class="share-box" id="shareBox">
         <div class="share-url" id="shareUrl"></div>
       </div>
+      <button class="btn btn-danger" onclick="deleteEvent()" style="margin-right:auto;">删除活动</button>
       <button class="btn btn-ghost" onclick="closePanel()">关闭</button>
     </div>
   </div>
@@ -112,8 +150,8 @@ let currentYear = 2026, currentMonth = 7;
 let selectedEventId = null;
 
 let officialEvents = [
-  { id: 'qianyuan-review-20260710', name: '"乾元"review', date: '2026-07-10', time: '15:00-16:00', location: '北京CMIT office S1212庐山会议室', audience: 'AI Lab Team', scale: '7人', weather: '北京7月10日（周五）阴转雷阵雨，24-32℃，东南风微风，降水概率约70%。（更新于7月7日）', traffic: '北京城区7月10日限行尾号5和0，有大型活动（鸟巢演唱会等），有交通管制（朝阳区管庄路施工禁行）。（更新于7月7日）' },
-  { id: 'caipiao-lingjiang-20260717', name: '彩票中心领奖会议', date: '2026-07-17', time: '14:00-15:00', location: '北京市体彩中心', audience: '', scale: '2人', weather: '暂无预报数据（更新于7月6日）', traffic: '暂无交通信息（更新于7月7日）' }
+  { id: 'qianyuan-review-20260710', name: '"乾元"review', date: '2026-07-10', time: '15:00-16:00', category: 'internal', location: '北京CMIT office S1212庐山会议室', audience: 'AI Lab Team', scale: '7人', weather: '北京7月10日（周五）阴转雷阵雨，24-32℃，东南风微风，降水概率约70%。（更新于7月7日）', traffic: '北京城区7月10日限行尾号5和0，有大型活动（鸟巢演唱会等），有交通管制（朝阳区管庄路施工禁行）。（更新于7月7日）' },
+  { id: 'caipiao-lingjiang-20260717', name: '彩票中心领奖会议', date: '2026-07-17', time: '14:00-15:00', category: 'government', location: '北京市体彩中心', audience: '', scale: '2人', weather: '暂无预报数据（更新于7月6日）', traffic: '暂无交通信息（更新于7月7日）' }
 ];
 
 function getLocalEvents() {
@@ -155,8 +193,8 @@ function buildCalendar() {
     html += '<div class="day current-month' + (isToday ? ' today' : '') + '">';
     html += '<div class="date">' + d + (isToday ? ' 今天' : '') + '</div>';
     dayEvents.forEach(function(ev){
-      var cls = ev.id.indexOf('caipiao') >= 0 ? 'type-b' : '';
-      html += '<div class="event-card ' + cls + '" onclick="openEvent(\'' + ev.id + '\')">' + ev.name + '</div>';
+      var catClass = 'cat-' + (ev.category || 'internal');
+      html += '<div class="event-card ' + catClass + '" onclick="openEvent(\'' + ev.id + '\')">' + ev.name + '</div>';
     });
     html += '</div>';
   }
@@ -211,7 +249,74 @@ function changeMonth(delta) {
 
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ---- List View ----
+function buildListView() {
+  var allEvents = getAllEvents();
+  var list = document.getElementById('listView');
+  if (!allEvents.length) { list.innerHTML = '<div class="list-empty">暂无活动</div>'; return; }
+  allEvents.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  var html = '';
+  allEvents.forEach(function(ev){
+    var catClass = 'cat-' + (ev.category || 'internal');
+    html += '<div class="list-item" onclick="openEvent(\'' + ev.id + '\')">';
+    html += '<div class="list-color ' + catClass + '"></div>';
+    html += '<div class="list-info"><div class="li-name">' + esc(ev.name) + '</div><div class="li-meta">' + esc(ev.location||'') + ' &middot; ' + esc(ev.scale||'') + '</div></div>';
+    html += '<div class="list-date">' + esc(ev.date||'') + '<br><span style="font-size:11px;color:#94a3b8;">' + esc(ev.time||'') + '</span></div>';
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function switchView(view) {
+  document.getElementById('btnCalendar').classList.toggle('active', view==='calendar');
+  document.getElementById('btnList').classList.toggle('active', view==='list');
+  document.getElementById('calendar').classList.toggle('hide', view!=='calendar');
+  document.getElementById('listView').classList.toggle('show', view==='list');
+  if (view === 'list') buildListView();
+}
+
+// ---- Delete Event ----
+function deleteEvent() {
+  if (!selectedEventId) return;
+  var allEvents = getAllEvents();
+  var ev = allEvents.find(function(e){ return e.id === selectedEventId; });
+  if (!ev) return;
+  if (!confirm('确定要删除活动「' + ev.name + '」吗？\n此操作不可撤销。')) return;
+
+  // Remove from localStorage
+  var stored = {};
+  try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
+  delete stored[selectedEventId];
+  localStorage.setItem('claire_my_events', JSON.stringify(stored));
+
+  // Delete via GitHub API if token available
+  var token = localStorage.getItem('claire_gh_token');
+  if (token) {
+    fetch('https://api.github.com/repos/claireli2621/claire_event_calendar/contents/data/events.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(fi){
+      var data = { events: [] };
+      try { data = JSON.parse(atob(fi.content.replace(/\s/g,''))); } catch(e) {}
+      data.events = (data.events||[]).filter(function(e){ return e.id !== selectedEventId; });
+      var nc = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+      return fetch('https://api.github.com/repos/claireli2621/claire_event_calendar/contents/data/events.json', {
+        method: 'PUT', headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Delete: ' + ev.name, content: nc, sha: fi.sha })
+      });
+    })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); })
+    .catch(function(err){ alert('GitHub 同步删除失败：' + err.message + '\n但本地已删除。告诉我"同步数据"，我来手动处理。'); });
+  }
+
+  closePanel();
+  buildCalendar();
+  buildListView();
+}
+
 buildCalendar();
+buildListView();
 document.getElementById('monthTitle').textContent = currentYear + '年 ' + currentMonth + '月';
 </script>
 </body>
