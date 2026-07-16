@@ -904,6 +904,10 @@ function publishToGitHub(ev, name) {
           old.category = ev.category;
           old.updated = ev.updated;
           old.section1_basic_info = ev.section1_basic_info;
+          old.section2_schedule = ev.section2_schedule;
+          old.section3_preparation = ev.section3_preparation;
+          old.section4_departure = ev.section4_departure;
+          old.section5_wrapup = ev.section5_wrapup;
           found = true;
           break;
         }
@@ -1240,18 +1244,24 @@ setInterval(saveDraft, 30000);
   var stored = {};
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
   var fullCached = localStorage.getItem('claire_full_' + editId);
+  var formFilled = false;
   if (fullCached) {
-    try { fillForm(JSON.parse(fullCached)); } catch(e) { if (stored[editId]) fillForm(stored[editId]); }
+    try { fillForm(JSON.parse(fullCached)); formFilled = true; } catch(e) { if (stored[editId]) { fillForm(stored[editId]); formFilled = true; } }
   } else if (stored[editId]) {
-    fillForm(stored[editId]);
+    fillForm(stored[editId]); formFilled = true;
   }
-  // Always fetch from GitHub for latest data
+  // Fetch from GitHub for latest data, but only fill form if localStorage had nothing
   fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now())
     .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
     .then(function(data){
       var ev = (data.events||[]).find(function(e){ return e.id === editId; });
-      if (ev) { fillForm(ev); localStorage.setItem('claire_full_' + editId, JSON.stringify(ev)); }
-      else if (!stored[editId] && !fullCached) { initCheckboxes(); }
+      if (ev) {
+        // Always update cache with latest GitHub data
+        localStorage.setItem('claire_full_' + editId, JSON.stringify(ev));
+        // Only fill form if localStorage didn't already have data
+        if (!formFilled) { fillForm(ev); }
+      }
+      else if (!formFilled) { initCheckboxes(); }
     })
     .catch(function(){});
 })();
