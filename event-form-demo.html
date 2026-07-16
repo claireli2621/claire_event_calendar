@@ -288,7 +288,7 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
               <tr>
                 <td><input type="text" placeholder="输入姓名"></td>
                 <td><input type="text" placeholder="职务/公司"></td>
-                <td style="font-size:11px;color:#94a3b8;background:#fafafa;">根据提供的要员信息，自动搜索总结简介及近期动态，500字以内</td>
+                <td><textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea></td>
               </tr>
             </tbody>
           </table>
@@ -329,6 +329,10 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
         <td class="fill"><input type="text" placeholder="简要描述演讲内容"></td>
       </tr>
       <tr>
+        <td class="lbl">活动希望</td>
+        <td class="fill" colspan="3"><input type="text" placeholder="对本次活动的期望/目标"></td>
+      </tr>
+      <tr>
         <td class="lbl">PPT要求</td>
         <td class="fill" colspan="3">
           <span class="cb-label"><input type="checkbox"> 专用模板</span>
@@ -354,7 +358,9 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
         <td class="lbl">参考资料</td>
         <td class="fill" colspan="3">
           <span class="hint">允许粘贴文本、或上传附件（图片、Word、Excel、PPT、PDF等）</span>
-          <div class="add-row"><button class="add-btn" onclick="alert('选择文件')">+ 上传附件</button></div>
+          <div id="refFiles"></div>
+          <div class="add-row"><button class="add-btn" onclick="document.getElementById('refFileInput').click()">+ 上传附件</button></div>
+          <input type="file" id="refFileInput" style="display:none" onchange="handleFileUpload(this, 'refFiles')" multiple>
         </td>
       </tr>
       <tr>
@@ -369,7 +375,9 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
         <td class="lbl">定稿PPT</td>
         <td class="fill" colspan="3">
           <span class="hint">允许上传附件</span>
-          <div class="add-row"><button class="add-btn" onclick="alert('选择文件')">+ 上传附件</button></div>
+          <div id="pptFiles"></div>
+          <div class="add-row"><button class="add-btn" onclick="document.getElementById('pptFileInput').click()">+ 上传附件</button></div>
+          <input type="file" id="pptFileInput" style="display:none" onchange="handleFileUpload(this, 'pptFiles')" multiple>
         </td>
       </tr>
       <tr>
@@ -597,7 +605,7 @@ function selectPill(el) {
 function addVipRow() {
   var tbody = document.getElementById('vipTable');
   var tr = document.createElement('tr');
-  tr.innerHTML = '<td><input type="text" placeholder="输入姓名"></td><td><input type="text" placeholder="职务/公司"></td><td style="font-size:11px;color:#94a3b8;background:#fafafa;">根据提供的要员信息，自动搜索总结简介及近期动态，500字以内</td>';
+  tr.innerHTML = '<td><input type="text" placeholder="输入姓名"></td><td><input type="text" placeholder="职务/公司"></td><td><textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea></td>';
   tbody.appendChild(tr);
 }
 
@@ -627,8 +635,7 @@ function getFillCell(sectionId, label) {
   var lbls = section.querySelectorAll('.lbl');
   for (var i = 0; i < lbls.length; i++) {
     if (lbls[i].textContent.trim() === label) {
-      var tr = lbls[i].parentElement;
-      return tr.querySelector('.fill');
+      return lbls[i].nextElementSibling;
     }
   }
   return null;
@@ -665,11 +672,12 @@ function readVips() {
   var vips = [];
   for (var i = 0; i < rows.length; i++) {
     var inputs = rows[i].querySelectorAll('input[type="text"]');
+    var textarea = rows[i].querySelector('textarea');
     if (inputs.length >= 2) {
       var name = inputs[0].value.trim();
       var title = inputs[1].value.trim();
       if (name || title) {
-        vips.push({ "姓名": name, "Title公司": title, "简介近期动态": "" });
+        vips.push({ "姓名": name, "Title公司": title, "简介近期动态": textarea ? textarea.value.trim() : "" });
       }
     }
   }
@@ -691,6 +699,62 @@ function readTodos() {
 function readRadio(name) {
   var rb = document.querySelector('input[name="' + name + '"]:checked');
   return rb ? (rb.parentElement.textContent.trim() || rb.value) : '';
+}
+
+// ---- File upload helpers ----
+function handleFileUpload(input, containerId) {
+  var container = document.getElementById(containerId);
+  for (var f = 0; f < input.files.length; f++) {
+    var file = input.files[f];
+    if (file.size > 5 * 1024 * 1024) { alert(file.name + ' 超过5MB，请压缩后上传'); continue; }
+    var reader = new FileReader();
+    reader.onload = (function(file, container) {
+      return function(e) {
+        var item = document.createElement('div');
+        item.className = 'file-item';
+        item.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 8px;margin:3px 0;background:#f1f5f9;border-radius:4px;font-size:12px;';
+        item.innerHTML = '<span style="color:#2563eb;cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="downloadFile(this)" data-url="' + e.target.result + '" data-name="' + file.name + '">' + file.name + ' (' + (file.size/1024).toFixed(0) + 'KB)</span><span style="color:#c0c4cc;cursor:pointer;padding:2px 6px;" onclick="this.parentElement.remove()">x</span>';
+        item.__dataUrl = e.target.result;
+        item.__fileName = file.name;
+        container.appendChild(item);
+      };
+    })(file, container);
+    reader.readAsDataURL(file);
+  }
+  input.value = '';
+}
+
+function downloadFile(el) {
+  var a = document.createElement('a');
+  a.href = el.getAttribute('data-url');
+  a.download = el.getAttribute('data-name');
+  a.click();
+}
+
+function readFileAttachments(containerId) {
+  var items = document.getElementById(containerId).querySelectorAll('.file-item');
+  var files = [];
+  for (var i = 0; i < items.length; i++) {
+    files.push({ name: items[i].__fileName || '', dataUrl: items[i].__dataUrl || '' });
+  }
+  return files;
+}
+
+function restoreFileAttachments(containerId, files) {
+  var container = document.getElementById(containerId);
+  container.innerHTML = '';
+  if (!files || !files.length) return;
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    if (!f.dataUrl) continue;
+    var item = document.createElement('div');
+    item.className = 'file-item';
+    item.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 8px;margin:3px 0;background:#f1f5f9;border-radius:4px;font-size:12px;';
+    item.innerHTML = '<span style="color:#2563eb;cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="downloadFile(this)" data-url="' + f.dataUrl + '" data-name="' + f.name + '">' + f.name + '</span><span style="color:#c0c4cc;cursor:pointer;padding:2px 6px;" onclick="this.parentElement.remove()">x</span>';
+    item.__dataUrl = f.dataUrl;
+    item.__fileName = f.name;
+    container.appendChild(item);
+  }
 }
 
 function autoSave() {
@@ -779,14 +843,17 @@ function autoSave() {
       })(),
       "待办": readTodos(),
       "参考资料": "",
+      "参考资料附件": readFileAttachments('refFiles'),
       "分享主题": readInput('sec3', '演讲主题'),
       "内容梗概": readInput('sec3', '内容梗概'),
+      "活动希望": readInput('sec3', '活动希望'),
       "PPT要求": s3_ppt,
       "演讲模式": s3_yanshuo,
       "设备状况": s3_shebei,
       "演讲环境": s3_huanjing,
       "参会注册": s3_zhuce,
       "对接信息": readInput('sec3', '对接信息'),
+      "定稿PPT附件": readFileAttachments('pptFiles'),
       "准备备注": readTextarea('sec3', '备注'),
       "PPT准备": {},
       "现场照片": readRichEditor('sec3_photos'),
@@ -952,13 +1019,48 @@ function pinyinSlug(name) {
   return name.replace(/[^一-龥a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'event';
 }
 
+function daysUntilEvent() {
+  var dateVal = document.getElementById('evDate').value;
+  if (!dateVal) return null;
+  var eventDate = new Date(dateVal + 'T00:00:00');
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  return Math.ceil((eventDate - today) / (1000*60*60*24));
+}
+
 function refreshWeather() {
-  document.getElementById('weatherContent').innerHTML = '北京7月10日（周五）阴转雷阵雨，24-32℃，东南风微风，降水概率约70%。';
-  document.getElementById('weatherContent').nextElementSibling.textContent = '更新于刚刚 | 来源：中国天气网';
+  var days = daysUntilEvent();
+  var meta = document.getElementById('weatherContent').parentElement.querySelector('.ac-meta');
+  if (days === null) {
+    document.getElementById('weatherContent').innerHTML = '请先填写会议时间';
+    if (meta) meta.textContent = '';
+  } else if (days < 0) {
+    document.getElementById('weatherContent').innerHTML = '活动日期已过，暂无天气数据';
+    if (meta) meta.textContent = '';
+  } else if (days > 7) {
+    document.getElementById('weatherContent').innerHTML = '活动日期距现在超过7天，暂无预报数据。请在活动前7天内刷新。';
+    if (meta) meta.textContent = '仅支持查询未来7天天气';
+  } else {
+    document.getElementById('weatherContent').innerHTML = '将在保存时自动查询目的地天气（活动日期在7天内）';
+    if (meta) meta.textContent = '提示：说"刷新天气"可由Claude自动查询 | 来源：中国天气网';
+  }
 }
 function refreshTraffic() {
-  document.getElementById('trafficContent').innerHTML = '北京城区7月10日限行尾号5和0，有大型活动，有交通管制。';
-  document.getElementById('trafficContent').nextElementSibling.textContent = '更新于刚刚 | 来源：北京交管局';
+  var days = daysUntilEvent();
+  var meta = document.getElementById('trafficContent').parentElement.querySelector('.ac-meta');
+  if (days === null) {
+    document.getElementById('trafficContent').innerHTML = '请先填写会议时间';
+    if (meta) meta.textContent = '';
+  } else if (days < 0) {
+    document.getElementById('trafficContent').innerHTML = '活动日期已过，暂无交通数据';
+    if (meta) meta.textContent = '';
+  } else if (days > 7) {
+    document.getElementById('trafficContent').innerHTML = '活动日期距现在超过7天，暂无交通信息。请在活动前7天内刷新。';
+    if (meta) meta.textContent = '仅支持查询未来7天出行提示';
+  } else {
+    document.getElementById('trafficContent').innerHTML = '将在保存时自动查询目的地交通信息（活动日期在7天内）';
+    if (meta) meta.textContent = '提示：说"刷新交通"可由Claude自动查询 | 来源：城市交管局';
+  }
 }
 
 // Checkbox styling
@@ -1114,8 +1216,10 @@ setInterval(saveDraft, 30000);
           row = allRows[allRows.length - 1];
         }
         inputs = row.querySelectorAll('input[type="text"]');
+        var ta = row.querySelector('textarea');
         if (inputs[0]) inputs[0].value = vips[vi]['姓名'] || '';
         if (inputs[1]) inputs[1].value = vips[vi]['Title公司'] || '';
+        if (ta) ta.value = vips[vi]['简介近期动态'] || '';
       }
     }
 
@@ -1123,6 +1227,7 @@ setInterval(saveDraft, 30000);
     setInputByLabel('sec3', '演讲时长', s3['演讲时长'] || '');
     setInputByLabel('sec3', '演讲主题', s3['分享主题'] || '');
     setInputByLabel('sec3', '内容梗概', s3['内容梗概'] || '');
+    setInputByLabel('sec3', '活动希望', s3['活动希望'] || '');
     setInputByLabel('sec3', '对接信息', s3['对接信息'] || '');
     setTextareaByLabel('sec3', '备注', s3['准备备注'] || '');
 
@@ -1150,6 +1255,10 @@ setInterval(saveDraft, 30000);
     // Section 3 — rich editors
     var s3editors = { sec3_route_car: s3['行车路线'] || '', sec3_route_venue: s3['会场路线'] || '', sec3_photos: s3['现场照片'] || '', sec3_video: s3['试播视频'] || '' };
     Object.keys(s3editors).forEach(function(id){ var el = document.getElementById(id); if (el && s3editors[id]) el.innerHTML = s3editors[id]; });
+
+    // Section 3 — file attachments
+    restoreFileAttachments('refFiles', s3['参考资料附件'] || []);
+    restoreFileAttachments('pptFiles', s3['定稿PPT附件'] || []);
 
     // Section 3 — todos
     var todos = s3['待办'] || [];
@@ -1224,7 +1333,8 @@ setInterval(saveDraft, 30000);
     var cbs = fill.querySelectorAll('input[type="checkbox"]');
     for (var i = 0; i < cbs.length; i++) {
       var txt = (cbs[i].parentElement.textContent || '').trim();
-      if (data[txt] === true) { cbs[i].checked = true; cbs[i].parentElement.classList.add('checked'); }
+      cbs[i].checked = (data[txt] === true);
+      cbs[i].parentElement.classList.toggle('checked', cbs[i].checked);
     }
   }
   function setInputByLabel(sectionId, label, value) {
