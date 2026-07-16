@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -59,6 +59,14 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
 .list-info .li-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
 .list-date { text-align: right; font-size: 13px; color: #1e293b; font-weight: 500; min-width: 80px; }
 .list-empty { text-align: center; padding: 32px; color: #94a3b8; font-size: 13px; }
+.color-legend { display: flex; justify-content: center; gap: 18px; margin-bottom: 14px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #64748b; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.legend-dot.cat-internal { background: #2563eb; }
+.legend-dot.cat-external { background: #10b981; }
+.legend-dot.cat-government { background: #f59e0b; }
+.legend-dot.cat-other { background: #6366f1; }
+
 .view-toggle { display: flex; gap: 0; margin-left: auto; }
 .view-toggle button { padding: 5px 14px; border: 1px solid #c8ccd4; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; color: #64748b; }
 .view-toggle button:first-child { border-radius: 5px 0 0 5px; }
@@ -119,6 +127,13 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
       <button id="btnCalendar" class="active" onclick="switchView('calendar')">日历</button>
       <button id="btnList" onclick="switchView('list')">列表</button>
     </div>
+  </div>
+
+  <div class="color-legend">
+    <span class="legend-item"><span class="legend-dot cat-internal"></span> 内部会议</span>
+    <span class="legend-item"><span class="legend-dot cat-external"></span> 外部活动</span>
+    <span class="legend-item"><span class="legend-dot cat-government"></span> 政府交流</span>
+    <span class="legend-item"><span class="legend-dot cat-other"></span> 其他</span>
   </div>
 
   <div class="calendar" id="calendar"></div>
@@ -194,7 +209,7 @@ function buildCalendar() {
     html += '<div class="date">' + d + (isToday ? ' 今天' : '') + '</div>';
     dayEvents.forEach(function(ev){
       var catClass = 'cat-' + (ev.category || 'internal');
-      html += '<div class="event-card ' + catClass + '" onclick="openEvent(\'' + ev.id + '\')">' + ev.name + '</div>';
+      html += '<div class="event-card ' + catClass + '" onclick="window.location.href=\'event-form-demo.html?view=' + encodeURIComponent(ev.id) + '\'">' + ev.name + '</div>';
     });
     html += '</div>';
   }
@@ -258,7 +273,7 @@ function buildListView() {
   var html = '';
   allEvents.forEach(function(ev){
     var catClass = 'cat-' + (ev.category || 'internal');
-    html += '<div class="list-item" onclick="openEvent(\'' + ev.id + '\')">';
+    html += '<div class="list-item" onclick="window.location.href=\'event-form-demo.html?view=' + encodeURIComponent(ev.id) + '\'">';
     html += '<div class="list-color ' + catClass + '"></div>';
     html += '<div class="list-info"><div class="li-name">' + esc(ev.name) + '</div><div class="li-meta">' + esc(ev.location||'') + ' &middot; ' + esc(ev.scale||'') + '</div></div>';
     html += '<div class="list-date">' + esc(ev.date||'') + '<br><span style="font-size:11px;color:#94a3b8;">' + esc(ev.time||'') + '</span></div>';

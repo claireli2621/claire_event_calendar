@@ -146,6 +146,7 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
 <body>
 
 <div class="topbar">
+  <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:#e2e8f0;border-color:#475569;" onclick="window.location.href='index.html'">&#8592; 日历</button>
   <span class="logo">Claire<span> 活动管理</span></span>
   <span class="spacer"></span>
   <span class="badge badge-draft" id="topBadge">草稿</span>
@@ -1138,11 +1139,35 @@ setInterval(saveDraft, 30000);
   } catch(e) {}
 })();
 
-// ---- Load event for editing (via ?edit=event-id) ----
+// ---- Load event for editing (via ?edit=event-id) or viewing (via ?view=event-id) ----
 (function initEditMode() {
   var params = new URLSearchParams(window.location.search);
   var editId = params.get('edit');
-  if (!editId) { initCheckboxes(); return; }
+  var viewId = params.get('view');
+  var eventId = editId || viewId;
+  var isViewMode = !!viewId && !editId;
+  if (!eventId) { initCheckboxes(); return; }
+
+  // Set read-only mode for view
+  if (isViewMode) {
+    document.title = '活动详情 — Claire 活动管理';
+    // Disable all inputs
+    setTimeout(function(){
+      document.querySelectorAll('input, textarea, select').forEach(function(el){ el.disabled = true; el.readOnly = true; });
+      document.querySelectorAll('.rich-editor').forEach(function(el){ el.contentEditable = 'false'; });
+      document.querySelectorAll('.add-btn').forEach(function(el){ el.style.display = 'none'; });
+      document.querySelectorAll('.todo-del').forEach(function(el){ el.style.display = 'none'; });
+      document.querySelectorAll('.refresh-btn').forEach(function(el){ el.style.display = 'none'; });
+      // Hide radio inputs visually
+      document.querySelectorAll('input[type="radio"]').forEach(function(el){ el.style.display = 'none'; });
+    }, 100);
+    // Update bottom bar
+    var bb = document.querySelector('.bottombar');
+    if (bb) {
+      bb.innerHTML = '<span class="last-saved" id="saveIndicator">活动详情（只读）</span><div style="display:flex;gap:10px;"><button class="btn btn-ghost" onclick="window.location.href=\'index.html\'">返回日历</button><button class="btn btn-primary" onclick="window.location.href=\'event-form-demo.html?edit=' + eventId + '\'">编辑</button></div>';
+    }
+  }
+
   function fillForm(ev) {
     window._editingEvent = ev;
     var s1 = ev.section1_basic_info || ev;
@@ -1294,14 +1319,15 @@ setInterval(saveDraft, 30000);
     var breakfast = hotel['是否包早餐'] || '';
     if (breakfast === '有') { setCheckboxGroup('sec4', '早餐', {'有': true}); }
     else if (breakfast === '无') { setCheckboxGroup('sec4', '早餐', {'无': true}); }
+    else { setCheckboxGroup('sec4', '早餐', {}); }
 
     var clothes = s4['衣着要求'] || '';
+    var clothObj = {};
     if (clothes) {
       var clothParts = clothes.split('、');
-      var clothObj = {};
       clothParts.forEach(function(c){ clothObj[c] = true; });
-      setCheckboxGroup('sec4', '衣着要求', clothObj);
     }
+    setCheckboxGroup('sec4', '衣着要求', clothObj);
 
     var specInput = document.querySelector('#sec4 input[placeholder*="badge"]');
     if (specInput) specInput.value = s4['特殊携带'] || '';
@@ -1353,21 +1379,21 @@ setInterval(saveDraft, 30000);
   // Try full event cache first, then summary, then GitHub
   var stored = {};
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
-  var fullCached = localStorage.getItem('claire_full_' + editId);
+  var fullCached = localStorage.getItem('claire_full_' + eventId);
   var formFilled = false;
   if (fullCached) {
-    try { fillForm(JSON.parse(fullCached)); formFilled = true; } catch(e) { if (stored[editId]) { fillForm(stored[editId]); formFilled = true; } }
-  } else if (stored[editId]) {
-    fillForm(stored[editId]); formFilled = true;
+    try { fillForm(JSON.parse(fullCached)); formFilled = true; } catch(e) { if (stored[eventId]) { fillForm(stored[eventId]); formFilled = true; } }
+  } else if (stored[eventId]) {
+    fillForm(stored[eventId]); formFilled = true;
   }
   // Fetch from GitHub for latest data, but only fill form if localStorage had nothing
   fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now())
     .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
     .then(function(data){
-      var ev = (data.events||[]).find(function(e){ return e.id === editId; });
+      var ev = (data.events||[]).find(function(e){ return e.id === eventId; });
       if (ev) {
         // Always update cache with latest GitHub data
-        localStorage.setItem('claire_full_' + editId, JSON.stringify(ev));
+        localStorage.setItem('claire_full_' + eventId, JSON.stringify(ev));
         // Only fill form if localStorage didn't already have data
         if (!formFilled) { fillForm(ev); }
       }
