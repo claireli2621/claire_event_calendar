@@ -770,6 +770,41 @@ document.querySelectorAll('.tmpl-table input[type="text"], .tmpl-table input[typ
   });
 });
 
+// ---- Load event for editing (via ?edit=event-id) ----
+(function initEditMode() {
+  var params = new URLSearchParams(window.location.search);
+  var editId = params.get('edit');
+  if (!editId) { initCheckboxes(); return; }
+
+  function fillForm(ev) {
+    var s1 = ev.section1_basic_info || ev;
+    document.getElementById('evName').value = ev.name || '';
+    if (ev.date) document.getElementById('evDate').value = ev.date;
+    if (ev.time) { var p = ev.time.split('-'); document.getElementById('evTimeStart').value = p[0]||''; document.getElementById('evTimeEnd').value = p[1]||''; }
+    document.getElementById('evLocation').value = s1['会议地点'] || ev.location || '';
+    document.getElementById('evAudience').value = s1['会议受众'] || ev.audience || '';
+    document.getElementById('evScale').value = s1['会议规模'] || ev.scale || '';
+    document.getElementById('evBackground').value = s1['会议背景'] || ev.background || '';
+    document.getElementById('saveIndicator').textContent = '正在编辑：' + ev.name;
+    document.getElementById('saveIndicator').style.color = '#2563eb';
+    initCheckboxes();
+  }
+
+  // Check localStorage first
+  var stored = {};
+  try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
+  if (stored[editId]) { fillForm(stored[editId]); return; }
+
+  // Fetch from GitHub
+  fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now())
+    .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
+    .then(function(data){
+      var ev = (data.events||[]).find(function(e){ return e.id === editId; });
+      if (ev) fillForm(ev); else initCheckboxes();
+    })
+    .catch(function(){ initCheckboxes(); });
+})();
+
 initCheckboxes();
 </script>
 </body>

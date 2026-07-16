@@ -90,7 +90,10 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
   <div class="panel" id="detailPanel">
     <div class="panel-header">
       <h3 id="panelTitle">活动详情</h3>
-      <button class="btn btn-share" onclick="showShareLink()">分享链接</button>
+      <div>
+        <a id="editLink" href="#" class="btn btn-ghost" style="margin-right:8px;text-decoration:none;font-size:12px;padding:6px 14px;">编辑</a>
+        <button class="btn btn-share" onclick="showShareLink()">分享链接</button>
+      </div>
     </div>
     <div class="panel-body" id="panelBody"></div>
     <div class="panel-actions">
@@ -168,6 +171,7 @@ function openEvent(id) {
   var ev = allEvents.find(function(e){ return e.id === id; });
   if (!ev) return;
   document.getElementById('panelTitle').textContent = ev.name;
+  document.getElementById('editLink').href = 'event-form-demo.html?edit=' + encodeURIComponent(ev.id);
   document.getElementById('detailPanel').classList.add('open');
   document.getElementById('emptyHint').style.display = 'none';
   document.getElementById('shareBox').classList.remove('show');
