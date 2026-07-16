@@ -412,15 +412,15 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
       </tr>
       <tr>
         <td class="lbl">行车路线</td>
-        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;" id="sec3_route_car"></div></td>
         <td class="lbl">会场路线</td>
-        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;" id="sec3_route_venue"></div></td>
       </tr>
       <tr>
         <td class="lbl">现场照片</td>
-        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;" id="sec3_photos"></div></td>
         <td class="lbl">试播视频</td>
-        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;"></div></td>
+        <td class="fill"><div class="rich-editor" contenteditable="true" style="min-height:60px;" id="sec3_video"></div></td>
       </tr>
     </table>
   </div>
@@ -454,9 +454,9 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
       </tr>
       <tr>
         <td class="lbl">班次信息</td>
-        <td class="fill"><input type="text" placeholder="航班号/车次 + 时间"></td>
+        <td class="fill"><input type="text" id="goFlightInfo" placeholder="航班号/车次 + 时间"></td>
         <td class="lbl">班次信息</td>
-        <td class="fill"><input type="text" placeholder="航班号/车次 + 时间"></td>
+        <td class="fill"><input type="text" id="backFlightInfo" placeholder="航班号/车次 + 时间"></td>
       </tr>
       <tr>
         <td class="lbl">酒店名称</td>
@@ -620,6 +620,79 @@ function copyShareUrl() {
 var GITHUB_TOKEN = localStorage.getItem('claire_gh_token') || '';
 var GITHUB_API = 'https://api.github.com/repos/claireli2621/claire_event_calendar/contents/data/events.json';
 
+// ---- Form data helpers ----
+function getFillCell(sectionId, label) {
+  var section = document.getElementById(sectionId);
+  if (!section) return null;
+  var lbls = section.querySelectorAll('.lbl');
+  for (var i = 0; i < lbls.length; i++) {
+    if (lbls[i].textContent.trim() === label) {
+      var tr = lbls[i].parentElement;
+      return tr.querySelector('.fill');
+    }
+  }
+  return null;
+}
+function readCheckboxes(sectionId, label) {
+  var fill = getFillCell(sectionId, label);
+  if (!fill) return {};
+  var cbs = fill.querySelectorAll('input[type="checkbox"]');
+  var result = {};
+  for (var i = 0; i < cbs.length; i++) {
+    var txt = (cbs[i].parentElement.textContent || '').trim();
+    if (txt) result[txt] = cbs[i].checked;
+  }
+  return result;
+}
+function readInput(sectionId, label) {
+  var fill = getFillCell(sectionId, label);
+  if (!fill) return '';
+  var inp = fill.querySelector('input[type="text"], input:not([type])');
+  return inp ? inp.value.trim() : '';
+}
+function readTextarea(sectionId, label) {
+  var fill = getFillCell(sectionId, label);
+  if (!fill) return '';
+  var ta = fill.querySelector('textarea');
+  return ta ? ta.value.trim() : '';
+}
+function readRichEditor(id) {
+  var el = document.getElementById(id);
+  return el ? el.innerHTML.trim() : '';
+}
+function readVips() {
+  var rows = document.querySelectorAll('#vipTable tr');
+  var vips = [];
+  for (var i = 0; i < rows.length; i++) {
+    var inputs = rows[i].querySelectorAll('input[type="text"]');
+    if (inputs.length >= 2) {
+      var name = inputs[0].value.trim();
+      var title = inputs[1].value.trim();
+      if (name || title) {
+        vips.push({ "姓名": name, "Title公司": title, "简介近期动态": "" });
+      }
+    }
+  }
+  return vips;
+}
+function readTodos() {
+  var items = document.querySelectorAll('#todoList .todo-item');
+  var todos = [];
+  for (var i = 0; i < items.length; i++) {
+    var textInput = items[i].querySelector('.todo-text');
+    var text = textInput ? textInput.value.trim() : '';
+    if (text) {
+      var checked = items[i].querySelector('.todo-check');
+      todos.push({ "内容": text, "完成": checked ? checked.checked : false });
+    }
+  }
+  return todos;
+}
+function readRadio(name) {
+  var rb = document.querySelector('input[name="' + name + '"]:checked');
+  return rb ? (rb.parentElement.textContent.trim() || rb.value) : '';
+}
+
 function autoSave() {
   var name = document.getElementById('evName').value.trim();
   if (!name) { alert('请先填写会议名称'); return; }
@@ -629,48 +702,144 @@ function autoSave() {
   var t2 = document.getElementById('evTimeEnd').value.trim();
   var timeDisplay = (t1 && t2) ? (t1 + '-' + t2) : (t1 || t2 || '');
   var category = getSelectedCategory();
-
-  // Determine if editing existing
   var params = new URLSearchParams(window.location.search);
   var editId = params.get('edit');
   var id = editId || (dateVal ? ('event-' + dateVal + '-' + pinyinSlug(name)) : ('event-' + pinyinSlug(name)));
-
   var dateCN = formatDateChinese(dateVal);
   var timeCN = dateCN ? (dateCN + ' ' + timeDisplay) : timeDisplay;
 
+  // Section 1 checkbox groups (form label -> JSON key mapping)
+  // Form "会议属性" row = JSON "渠道关系" (公司客户/顶级高校/政府权威/其他)
+  // Form "渠道关系" row = JSON "审批流程" (微软内部/学校关系/政府关系/其他关系)
+  // Form "审批流程" row = JSON "参会形式" (微软PR/微软CELA/无需批复)
+  // Form "参会形式" row = JSON "宣传安排" (现场参加/线上参加/录制视频参加)
+  // Form "宣传安排" + "相关费用" rows = JSON "相关费用"
+  var s1_qudaoguanxi = readCheckboxes('sec1', '会议属性');
+  var s1_shenpiliucheng = readCheckboxes('sec1', '渠道关系');
+  var s1_canhuixingshi = readCheckboxes('sec1', '审批流程');
+  var s1_xuanchuan = readCheckboxes('sec1', '参会形式');
+  var s1_feiyong_a = readCheckboxes('sec1', '宣传安排');
+  var s1_feiyong_b = readCheckboxes('sec1', '相关费用');
+  var s1_feiyong = JSON.parse(JSON.stringify(s1_feiyong_a));
+  Object.keys(s1_feiyong_b).forEach(function(k){ s1_feiyong[k] = s1_feiyong_b[k]; });
+
+  // Section 3 checkboxes
+  var s3_ppt = readCheckboxes('sec3', 'PPT要求');
+  var s3_yanshuo = readCheckboxes('sec3', '演讲模式');
+  var s3_shebei = readCheckboxes('sec3', '设备状况');
+  var s3_huanjing = readCheckboxes('sec3', '演讲环境');
+  var s3_zhuce = readCheckboxes('sec3', '参会注册');
+
+  // Section 4
+  var s4_breakfast = readCheckboxes('sec4', '早餐');
+  var s4_clothes = readCheckboxes('sec4', '衣着要求');
+  var goTransport = readRadio('goTransport');
+  var backTransport = readRadio('backTransport');
+
+  // Section 5
+  var s5_share = readCheckboxes('sec5', '文档分享');
+
+  var newEvent = {
+    id: id, name: name, category: category,
+    updated: new Date().toISOString(),
+    section1_basic_info: {
+      "会议名称": name,
+      "会议时间": timeCN,
+      "会议地点": document.getElementById('evLocation').value.trim(),
+      "会议受众": document.getElementById('evAudience').value.trim(),
+      "会议规模": document.getElementById('evScale').value.trim(),
+      "主办方资质": readInput('sec1', '承办单位'),
+      "会议背景": document.getElementById('evBackground').value.trim() || "",
+      "会议预期": "",
+      "参会要员": "",
+      "会议属性": {
+        "渠道关系": s1_qudaoguanxi,
+        "审批流程": s1_shenpiliucheng,
+        "参会形式": s1_canhuixingshi,
+        "宣传安排": s1_xuanchuan,
+        "相关费用": s1_feiyong
+      },
+      "备注": readTextarea('sec1', '备注')
+    },
+    section2_schedule: {
+      "日程": readRichEditor('scheduleEditor'),
+      "要员简介": readVips()
+    },
+    section3_preparation: {
+      "演讲时长": readInput('sec3', '演讲时长'),
+      "演讲时间": (function(){
+        var fill = getFillCell('sec3', '演讲时间');
+        if (!fill) return '';
+        var d = fill.querySelector('input[type="date"]');
+        var ts = fill.querySelectorAll('input.time-input');
+        var ds = d ? formatDateChinese(d.value) : '';
+        var ts1 = ts[0] ? ts[0].value.trim() : '';
+        var ts2 = ts[1] ? ts[1].value.trim() : '';
+        return ds ? (ds + ' ' + ts1 + (ts2 ? '-' + ts2 : '')) : '';
+      })(),
+      "待办": readTodos(),
+      "参考资料": "",
+      "分享主题": readInput('sec3', '演讲主题'),
+      "内容梗概": readInput('sec3', '内容梗概'),
+      "PPT要求": s3_ppt,
+      "演讲模式": s3_yanshuo,
+      "设备状况": s3_shebei,
+      "演讲环境": s3_huanjing,
+      "参会注册": s3_zhuce,
+      "对接信息": readInput('sec3', '对接信息'),
+      "准备备注": readTextarea('sec3', '备注'),
+      "PPT准备": {},
+      "现场照片": readRichEditor('sec3_photos'),
+      "试播视频": readRichEditor('sec3_video'),
+      "行车路线": readRichEditor('sec3_route_car'),
+      "会场路线": readRichEditor('sec3_route_venue')
+    },
+    section4_departure: {
+      "大交通安排": "",
+      "去程": goTransport + ' ' + (document.getElementById('goFlightInfo') ? document.getElementById('goFlightInfo').value.trim() : ''),
+      "回程": backTransport + ' ' + (document.getElementById('backFlightInfo') ? document.getElementById('backFlightInfo').value.trim() : ''),
+      "酒店安排": {
+        "名称": readInput('sec4', '酒店名称'),
+        "地址": readInput('sec4', '酒店地址'),
+        "确认号": readInput('sec4', '预订确认号'),
+        "是否包早餐": (s4_breakfast['有'] || s4_breakfast['无']) ? (s4_breakfast['有'] ? '有' : '无') : ''
+      },
+      "衣着要求": (function(){
+        var keys = Object.keys(s4_clothes);
+        return keys.length > 0 ? keys.join('、') : '';
+      })(),
+      "特殊携带": readInput('sec4', '特殊携带'),
+      "目的地天气": (document.getElementById('weatherContent') || {}).textContent || '',
+      "出行提示": (document.getElementById('trafficContent') || {}).textContent || ''
+    },
+    section5_wrapup: {
+      "照片存档": readInput('sec5', '照片存档'),
+      "录像存档": readInput('sec5', '录像存档'),
+      "发言稿完整版": readInput('sec5', '发言稿完整版'),
+      "发言稿整理版": readInput('sec5', '发言稿整理版'),
+      "活动宣传发布内容": readInput('sec5', '宣传发布内容'),
+      "主办方是否索取文档分享版": (s5_share['有'] ? '是' : (s5_share['无'] ? '否' : '')),
+      "文档分享格式": (s5_share['PPT'] ? 'PPT ' : '') + (s5_share['PDF'] ? 'PDF' : ''),
+      "备注": readTextarea('sec5', '备注')
+    }
+  };
+
+  // Merge or create
   var ev;
   if (editId && window._editingEvent && window._editingEvent.section1_basic_info) {
-    // Merge form fields into existing event (preserve schedules, VIPs, etc.)
     ev = JSON.parse(JSON.stringify(window._editingEvent));
-    ev.name = name;
-    ev.category = category;
-    ev.updated = new Date().toISOString();
+    ev.name = newEvent.name;
+    ev.category = newEvent.category;
+    ev.updated = newEvent.updated;
     if (!ev.created) ev.created = new Date().toISOString().slice(0,10);
-    ev.section1_basic_info["会议名称"] = name;
-    ev.section1_basic_info["会议时间"] = timeCN;
-    ev.section1_basic_info["会议地点"] = document.getElementById('evLocation').value.trim();
-    ev.section1_basic_info["会议受众"] = document.getElementById('evAudience').value.trim();
-    ev.section1_basic_info["会议规模"] = document.getElementById('evScale').value.trim();
-    ev.section1_basic_info["会议背景"] = document.getElementById('evBackground').value.trim() || "";
+    ev.section1_basic_info = newEvent.section1_basic_info;
+    ev.section2_schedule = newEvent.section2_schedule;
+    ev.section3_preparation = newEvent.section3_preparation;
+    ev.section4_departure = newEvent.section4_departure;
+    ev.section5_wrapup = newEvent.section5_wrapup;
   } else {
-    ev = {
-      id: id, name: name,
-      category: category,
-      created: new Date().toISOString().slice(0,10), updated: new Date().toISOString(),
-      section1_basic_info: {
-        "会议名称": name,
-        "会议时间": timeCN,
-        "会议地点": document.getElementById('evLocation').value.trim(),
-        "会议受众": document.getElementById('evAudience').value.trim(),
-        "会议规模": document.getElementById('evScale').value.trim(),
-        "主办方资质": "", "会议背景": document.getElementById('evBackground').value.trim() || "", "会议预期": "", "参会要员": "",
-        "会议属性": {"渠道关系":{"公司客户":false,"顶级高校":false,"政府权威":false,"其他":false},"审批流程":{"微软内部":false,"学校关系":false,"政府关系":false,"其他关系":false},"参会形式":{"微软PR":false,"微软CELA":false,"无需批复":false},"宣传安排":{"现场参加":true,"线上参加":false,"现场+线上":false,"录制视频参加":false},"相关费用":{"新闻/短视频":false,"微软T&E":false,"现场直播":false,"主办方负责":false,"媒体采访":false,"劳务费":false,"不公开":false}}
-      },
-      section2_schedule: {"日程":[],"要员简介":[]},
-      section3_preparation: {"演讲时长":"","演讲时间":"","待办":[],"参考资料":"","分享主题":"","内容梗概":"","PPT要求":{},"现场照片":"","试播视频":""},
-      section4_departure: {"大交通安排":"","去程":"","回程":"","酒店安排":{"名称":"","地址":"","确认号":"","是否包早餐":""},"衣着要求":"","特殊携带":"","目的地天气":"","出行提示":""},
-      section5_wrapup: {"照片存档":"","录像存档":"","发言稿完整版":"","发言稿整理版":"","活动宣传发布内容":"","主办方是否索取文档分享版":""}
-    };
+    ev = newEvent;
+    ev.created = new Date().toISOString().slice(0,10);
   }
 
   // Save to localStorage
@@ -680,10 +849,8 @@ function autoSave() {
   var oldTraffic = stored[id] ? stored[id].traffic || '' : '';
   stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, category:category, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:oldWeather, traffic:oldTraffic, updated:new Date().toISOString()};
   localStorage.setItem('claire_my_events', JSON.stringify(stored));
-  // Clear draft
   localStorage.removeItem('claire_form_draft');
 
-  // Try GitHub API publish
   if (GITHUB_TOKEN) {
     publishToGitHub(ev, name);
   } else {
@@ -871,6 +1038,12 @@ setInterval(saveDraft, 30000);
   function fillForm(ev) {
     window._editingEvent = ev;
     var s1 = ev.section1_basic_info || ev;
+    var s2 = ev.section2_schedule || {};
+    var s3 = ev.section3_preparation || {};
+    var s4 = ev.section4_departure || {};
+    var s5 = ev.section5_wrapup || {};
+
+    // Section 1 — basic fields
     document.getElementById('evName').value = ev.name || '';
     if (ev.date) {
       document.getElementById('evDate').value = ev.date;
@@ -890,14 +1063,175 @@ setInterval(saveDraft, 30000);
     document.getElementById('evAudience').value = s1['会议受众'] || ev.audience || '';
     document.getElementById('evScale').value = s1['会议规模'] || ev.scale || '';
     document.getElementById('evBackground').value = s1['会议背景'] || ev.background || '';
+
+    // Category radio
     var cat = ev.category || '';
     if (cat) {
       var rb = document.querySelector('input[name="evCategory"][value="' + cat + '"]');
       if (rb) { rb.checked = true; updateCategoryColor(); }
     }
+
+    // Section 1 — checkboxes
+    var attr = (s1['会议属性'] || {});
+    setCheckboxGroup('sec1', '会议属性', attr['渠道关系'] || {});
+    setCheckboxGroup('sec1', '渠道关系', attr['审批流程'] || {});
+    setCheckboxGroup('sec1', '审批流程', attr['参会形式'] || {});
+    setCheckboxGroup('sec1', '参会形式', attr['宣传安排'] || {});
+    setCheckboxGroup('sec1', '宣传安排', attr['相关费用'] || {});
+    setCheckboxGroup('sec1', '相关费用', attr['相关费用'] || {});
+
+    // Section 1 — 承办单位
+    var zbInput = document.querySelector('#sec1 input[placeholder="承办单位名称"]');
+    if (zbInput) zbInput.value = s1['主办方资质'] || '';
+
+    // Section 1 — 备注
+    var s1note = document.querySelector('#sec1 textarea[placeholder*="额外告知"]');
+    if (s1note) s1note.value = s1['备注'] || '';
+
+    // Section 2 — schedule
+    var sched = s2['日程'] || '';
+    document.getElementById('scheduleEditor').innerHTML = typeof sched === 'string' ? sched : '';
+
+    // Section 2 — VIPs
+    var vips = s2['要员简介'] || [];
+    if (vips.length > 0) {
+      var tbody = document.getElementById('vipTable');
+      while (tbody.children.length > 1) tbody.removeChild(tbody.lastChild);
+      var rows = tbody.querySelectorAll('tr');
+      for (var vi = 0; vi < vips.length; vi++) {
+        var row, inputs;
+        if (vi === 0) {
+          row = rows[0];
+        } else {
+          addVipRow();
+          var allRows = tbody.querySelectorAll('tr');
+          row = allRows[allRows.length - 1];
+        }
+        inputs = row.querySelectorAll('input[type="text"]');
+        if (inputs[0]) inputs[0].value = vips[vi]['姓名'] || '';
+        if (inputs[1]) inputs[1].value = vips[vi]['Title公司'] || '';
+      }
+    }
+
+    // Section 3
+    setInputByLabel('sec3', '演讲时长', s3['演讲时长'] || '');
+    setInputByLabel('sec3', '演讲主题', s3['分享主题'] || '');
+    setInputByLabel('sec3', '内容梗概', s3['内容梗概'] || '');
+    setInputByLabel('sec3', '对接信息', s3['对接信息'] || '');
+    setTextareaByLabel('sec3', '备注', s3['准备备注'] || '');
+
+    // Section 3 — 演讲时间
+    var s3time = s3['演讲时间'] || '';
+    if (s3time) {
+      var fillT = getFillCell('sec3', '演讲时间');
+      if (fillT) {
+        var d3 = fillT.querySelector('input[type="date"]');
+        var t3 = fillT.querySelectorAll('input.time-input');
+        var dm3 = s3time.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+        if (d3 && dm3) d3.value = dm3[1] + '-' + (dm3[2].length<2?'0':'') + dm3[2] + '-' + (dm3[3].length<2?'0':'') + dm3[3];
+        var tm3 = s3time.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/);
+        if (t3[0] && tm3) t3[0].value = tm3[1];
+        if (t3[1] && tm3) t3[1].value = tm3[2];
+      }
+    }
+
+    setCheckboxGroup('sec3', 'PPT要求', s3['PPT要求'] || {});
+    setCheckboxGroup('sec3', '演讲模式', s3['演讲模式'] || {});
+    setCheckboxGroup('sec3', '设备状况', s3['设备状况'] || {});
+    setCheckboxGroup('sec3', '演讲环境', s3['演讲环境'] || {});
+    setCheckboxGroup('sec3', '参会注册', s3['参会注册'] || {});
+
+    // Section 3 — rich editors
+    var s3editors = { sec3_route_car: s3['行车路线'] || '', sec3_route_venue: s3['会场路线'] || '', sec3_photos: s3['现场照片'] || '', sec3_video: s3['试播视频'] || '' };
+    Object.keys(s3editors).forEach(function(id){ var el = document.getElementById(id); if (el && s3editors[id]) el.innerHTML = s3editors[id]; });
+
+    // Section 3 — todos
+    var todos = s3['待办'] || [];
+    var todoList = document.getElementById('todoList');
+    var existingTodos = todoList.querySelectorAll('.todo-item');
+    for (var ti = 0; ti < todos.length; ti++) {
+      var todoItem;
+      if (ti < existingTodos.length) {
+        todoItem = existingTodos[ti];
+      } else {
+        addTodo();
+        var allTodos = todoList.querySelectorAll('.todo-item');
+        todoItem = allTodos[allTodos.length - 1];
+      }
+      var tText = todoItem.querySelector('.todo-text');
+      var tCheck = todoItem.querySelector('.todo-check');
+      if (tText) tText.value = todos[ti]['内容'] || '';
+      if (tCheck) { tCheck.checked = todos[ti]['完成'] || false; todoItem.classList.toggle('done', tCheck.checked); }
+    }
+
+    // Section 4
+    var goT = (s4['去程'] || '').trim();
+    var backT = (s4['回程'] || '').trim();
+    if (goT) { var goPills = document.querySelectorAll('#departureTransport .radio-pill'); goPills.forEach(function(p){ if (goT.indexOf(p.textContent.trim()) >= 0) { p.classList.add('active'); p.querySelector('input').checked = true; } }); }
+    if (backT) { var backPills = document.querySelectorAll('#returnTransport .radio-pill'); backPills.forEach(function(p){ if (backT.indexOf(p.textContent.trim()) >= 0) { p.classList.add('active'); p.querySelector('input').checked = true; } }); }
+    var gf = document.getElementById('goFlightInfo'); if (gf) gf.value = goT.replace(/^(飞机|火车)\s*/, '');
+    var bf = document.getElementById('backFlightInfo'); if (bf) bf.value = backT.replace(/^(飞机|火车)\s*/, '');
+
+    var hotel = s4['酒店安排'] || {};
+    setInputByLabel('sec4', '酒店名称', hotel['名称'] || '');
+    setInputByLabel('sec4', '酒店地址', hotel['地址'] || '');
+    setInputByLabel('sec4', '预订确认号', hotel['确认号'] || '');
+    var breakfast = hotel['是否包早餐'] || '';
+    if (breakfast === '有') { setCheckboxGroup('sec4', '早餐', {'有': true}); }
+    else if (breakfast === '无') { setCheckboxGroup('sec4', '早餐', {'无': true}); }
+
+    var clothes = s4['衣着要求'] || '';
+    if (clothes) {
+      var clothParts = clothes.split('、');
+      var clothObj = {};
+      clothParts.forEach(function(c){ clothObj[c] = true; });
+      setCheckboxGroup('sec4', '衣着要求', clothObj);
+    }
+
+    var specInput = document.querySelector('#sec4 input[placeholder*="badge"]');
+    if (specInput) specInput.value = s4['特殊携带'] || '';
+
+    // Section 5
+    setInputByLabel('sec5', '照片存档', s5['照片存档'] || '');
+    setInputByLabel('sec5', '录像存档', s5['录像存档'] || '');
+    setInputByLabel('sec5', '发言稿完整版', s5['发言稿完整版'] || '');
+    setInputByLabel('sec5', '发言稿整理版', s5['发言稿整理版'] || '');
+    setInputByLabel('sec5', '宣传发布内容', s5['活动宣传发布内容'] || '');
+    setTextareaByLabel('sec5', '备注', s5['备注'] || '');
+
+    var shareVal = s5['主办方是否索取文档分享版'] || '';
+    var shareObj = {};
+    if (shareVal === '是') shareObj['有'] = true;
+    else if (shareVal === '否') shareObj['无'] = true;
+    var shareFmt = s5['文档分享格式'] || '';
+    if (shareFmt.indexOf('PPT') >= 0) shareObj['PPT'] = true;
+    if (shareFmt.indexOf('PDF') >= 0) shareObj['PDF'] = true;
+    setCheckboxGroup('sec5', '文档分享', shareObj);
+
     document.getElementById('saveIndicator').textContent = '正在编辑：' + ev.name;
     document.getElementById('saveIndicator').style.color = '#2563eb';
     initCheckboxes();
+  }
+  function setCheckboxGroup(sectionId, label, data) {
+    var fill = getFillCell(sectionId, label);
+    if (!fill) return;
+    var cbs = fill.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < cbs.length; i++) {
+      var txt = (cbs[i].parentElement.textContent || '').trim();
+      if (data[txt] === true) { cbs[i].checked = true; cbs[i].parentElement.classList.add('checked'); }
+    }
+  }
+  function setInputByLabel(sectionId, label, value) {
+    var fill = getFillCell(sectionId, label);
+    if (!fill || !value) return;
+    var inp = fill.querySelector('input[type="text"], input:not([type])');
+    if (inp) inp.value = value;
+  }
+  function setTextareaByLabel(sectionId, label, value) {
+    var fill = getFillCell(sectionId, label);
+    if (!fill || !value) return;
+    var ta = fill.querySelector('textarea');
+    if (ta) ta.value = value;
   }
 
   // Load from localStorage for quick display
