@@ -726,9 +726,20 @@ function publishToGitHub(ev, name) {
         data = JSON.parse(content);
       } catch(e) {}
 
-      // Remove old version of same event, add new
-      data.events = data.events.filter(function(e){ return e.id !== ev.id; });
-      data.events.push(ev);
+      // Merge into existing event to preserve sections 2-5
+      var found = false;
+      for (var i = 0; i < data.events.length; i++) {
+        if (data.events[i].id === ev.id) {
+          var old = data.events[i];
+          old.name = ev.name;
+          old.category = ev.category;
+          old.updated = ev.updated;
+          old.section1_basic_info = ev.section1_basic_info;
+          found = true;
+          break;
+        }
+      }
+      if (!found) { data.events.push(ev); }
 
       var newContent = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
       return fetch(GITHUB_API, {
@@ -894,12 +905,13 @@ setInterval(saveDraft, 30000);
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
   if (stored[editId]) { fillForm(stored[editId]); }
 
-  // Also fetch from GitHub to get the full event (for proper save merge)
+  // Fetch from GitHub to get full event for save merge (don't overwrite form)
   fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now())
     .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
     .then(function(data){
       var ev = (data.events||[]).find(function(e){ return e.id === editId; });
-      if (ev) fillForm(ev);
+      if (ev) { window._editingEvent = ev; }
+      if (!stored[editId]) { if (ev) fillForm(ev); else initCheckboxes(); }
     })
     .catch(function(){});
 })();
