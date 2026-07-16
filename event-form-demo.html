@@ -608,50 +608,116 @@ function copyShareUrl() {
   var b = document.querySelector('.btn-copy'); b.textContent = '已复制!'; setTimeout(function(){ b.textContent = '复制链接'; }, 2000);
 }
 
+var GITHUB_TOKEN = localStorage.getItem('claire_gh_token') || '';
+var GITHUB_API = 'https://api.github.com/repos/claireli2621/claire_event_calendar/contents/data/events.json';
+
 function autoSave() {
-  // Collect basic info
   var name = document.getElementById('evName').value.trim();
   if (!name) { alert('请先填写会议名称'); return; }
 
   var dateVal = document.getElementById('evDate').value;
   var t1 = document.getElementById('evTimeStart').value.trim();
   var t2 = document.getElementById('evTimeEnd').value.trim();
-  var dateDisplay = formatDateChinese(dateVal);
   var timeDisplay = (t1 && t2) ? (t1 + '-' + t2) : (t1 || t2 || '');
 
-  var id = 'event-' + dateVal + '-' + pinyinSlug(name);
+  var id = dateVal ? ('event-' + dateVal + '-' + pinyinSlug(name)) : ('event-' + pinyinSlug(name));
+  var dateCN = formatDateChinese(dateVal);
+  var timeCN = dateCN ? (dateCN + ' ' + timeDisplay) : timeDisplay;
 
-  // Load existing events from localStorage
-  var stored = {};
-  try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
-
-  // Build event record
   var ev = {
-    id: id,
-    name: name,
-    date: dateVal,
-    time: timeDisplay,
-    location: document.getElementById('evLocation').value.trim(),
-    audience: document.getElementById('evAudience').value.trim(),
-    scale: document.getElementById('evScale').value.trim(),
-    background: document.getElementById('evBackground').value.trim(),
-    weather: '',
-    traffic: '',
-    updated: new Date().toISOString()
+    id: id, name: name,
+    created: new Date().toISOString().slice(0,10), updated: new Date().toISOString(),
+    section1_basic_info: {
+      "会议名称": name,
+      "会议时间": timeCN,
+      "会议地点": document.getElementById('evLocation').value.trim(),
+      "会议受众": document.getElementById('evAudience').value.trim(),
+      "会议规模": document.getElementById('evScale').value.trim(),
+      "主办方资质": "", "会议背景": document.getElementById('evBackground').value.trim() || "", "会议预期": "", "参会要员": "",
+      "会议属性": {"渠道关系":{"公司客户":false,"顶级高校":false,"政府权威":false,"其他":false},"审批流程":{"微软内部":false,"学校关系":false,"政府关系":false,"其他关系":false},"参会形式":{"微软PR":false,"微软CELA":false,"无需批复":false},"宣传安排":{"现场参加":true,"线上参加":false,"现场+线上":false,"录制视频参加":false},"相关费用":{"新闻/短视频":false,"微软T&E":false,"现场直播":false,"主办方负责":false,"媒体采访":false,"劳务费":false,"不公开":false}}
+    },
+    section2_schedule: {"日程":[],"要员简介":[]},
+    section3_preparation: {"演讲时长":"","演讲时间":"","待办":[],"参考资料":"","分享主题":"","内容梗概":"","PPT要求":{},"现场照片":"","试播视频":""},
+    section4_departure: {"大交通安排":"","去程":"","回程":"","酒店安排":{"名称":"","地址":"","确认号":"","是否包早餐":""},"衣着要求":"","特殊携带":"","目的地天气":"","出行提示":""},
+    section5_wrapup: {"照片存档":"","录像存档":"","发言稿完整版":"","发言稿整理版":"","活动宣传发布内容":"","主办方是否索取文档分享版":""}
   };
 
-  stored[id] = ev;
+  // Save to localStorage always
+  var stored = {};
+  try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
+  stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:'', traffic:'', updated:new Date().toISOString()};
   localStorage.setItem('claire_my_events', JSON.stringify(stored));
 
-  // Update UI
-  document.getElementById('saveIndicator').textContent = '上次保存：' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
-  document.getElementById('saveIndicator').style.color = '#10b981';
-  document.getElementById('topBadge').textContent = '已保存';
-  document.getElementById('topBadge').className = 'badge badge-ready';
-  var btns = document.querySelectorAll('.btn-primary');
-  btns.forEach(function(b){ b.textContent = '已保存 ✓'; b.style.background = '#10b981'; setTimeout(function(){ b.textContent = '保存'; b.style.background = '#2563eb'; }, 1500); });
+  // Try GitHub API publish
+  if (GITHUB_TOKEN) {
+    publishToGitHub(ev, name);
+  } else {
+    promptForToken(function(){ publishToGitHub(ev, name); });
+  }
+}
 
-  alert('活动「' + name + '」已保存！\n\n刷新日历首页即可看到。想同步到网站让所有人看到？告诉我"更新活动"，我来推送到GitHub。');
+function promptForToken(callback) {
+  var token = prompt('首次发布需要 GitHub 访问令牌，只需设置一次。\n\n请前往 https://github.com/settings/tokens\n点击 Generate new token (classic)\n勾选 repo 权限，生成后粘贴到这里：');
+  if (token && token.trim().length > 10) {
+    GITHUB_TOKEN = token.trim();
+    localStorage.setItem('claire_gh_token', GITHUB_TOKEN);
+    callback();
+  } else {
+    updateSaveUI(name, false);
+    alert('已保存到本地。\n\n要发布到网站让所有人看到，请创建 GitHub 访问令牌。\n\n1. 打开 https://github.com/settings/tokens\n2. Generate new token (classic)\n3. 勾选 repo 权限\n4. 复制令牌后重新点保存');
+  }
+}
+
+function publishToGitHub(ev, name) {
+  // First get current file SHA
+  fetch(GITHUB_API, { headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' } })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(fileInfo){
+      var data = { events: [] };
+      try {
+        var content = atob(fileInfo.content.replace(/\s/g, ''));
+        data = JSON.parse(content);
+      } catch(e) {}
+
+      // Remove old version of same event, add new
+      data.events = data.events.filter(function(e){ return e.id !== ev.id; });
+      data.events.push(ev);
+
+      var newContent = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+      return fetch(GITHUB_API, {
+        method: 'PUT',
+        headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Update: ' + name, content: newContent, sha: fileInfo.sha })
+      });
+    })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(){
+      updateSaveUI(name, true);
+      alert('活动「' + name + '」已发布！\n\n1-2 分钟后刷新日历首页即可看到。');
+    })
+    .catch(function(err){
+      updateSaveUI(name, false);
+      alert('发布失败：' + err.message + '\n\n已保存到本地。可以稍后重试或告诉我，我来推送。');
+    });
+}
+
+function updateSaveUI(name, success) {
+  document.getElementById('saveIndicator').textContent = '上次保存：' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+  document.getElementById('saveIndicator').style.color = success ? '#10b981' : '#eab308';
+  document.getElementById('topBadge').textContent = success ? '已发布' : '已保存';
+  document.getElementById('topBadge').className = success ? 'badge badge-ready' : 'badge badge-draft';
+  var btns = document.querySelectorAll('.btn-primary');
+  btns.forEach(function(b){ b.textContent = success ? '已发布 ✓' : '已保存 ✓'; b.style.background = '#10b981'; setTimeout(function(){ b.textContent = '保存'; b.style.background = '#2563eb'; }, 2000); });
+}
+
+function formatDateChinese(dateStr) {
+  if (!dateStr) return '';
+  var parts = dateStr.split('-');
+  return parts[0] + '年' + parseInt(parts[1]) + '月' + parseInt(parts[2]) + '日';
+}
+
+function pinyinSlug(name) {
+  return name.replace(/[^一-龥a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'event';
 }
 
 function formatDateChinese(dateStr) {
