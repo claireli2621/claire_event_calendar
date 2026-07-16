@@ -738,15 +738,6 @@ function updateSaveUI(name, success) {
   btns.forEach(function(b){ b.textContent = success ? '已发布 ✓' : '已保存 ✓'; b.style.background = '#10b981'; setTimeout(function(){ b.textContent = '保存'; b.style.background = '#2563eb'; }, 2000); });
 }
 
-function formatDateChinese(dateStr) {
-  if (!dateStr) return '';
-  var parts = dateStr.split('-');
-  return parts[0] + '年' + parseInt(parts[1]) + '月' + parseInt(parts[2]) + '日';
-}
-
-function pinyinSlug(name) {
-  return name.replace(/[^一-龥a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'event';
-}
 
 function formatDateChinese(dateStr) {
   if (!dateStr) return '';
