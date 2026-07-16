@@ -108,12 +108,29 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
 let currentYear = 2026, currentMonth = 7;
 let selectedEventId = null;
 
-let events = [
+let officialEvents = [
   { id: 'qianyuan-review-20260710', name: '"乾元"review', date: '2026-07-10', time: '15:00-16:00', location: '北京CMIT office S1212庐山会议室', audience: 'AI Lab Team', scale: '7人', weather: '北京7月10日（周五）阴转雷阵雨，24-32℃，东南风微风，降水概率约70%。（更新于7月7日）', traffic: '北京城区7月10日限行尾号5和0，有大型活动（鸟巢演唱会等），有交通管制（朝阳区管庄路施工禁行）。（更新于7月7日）' },
   { id: 'caipiao-lingjiang-20260717', name: '彩票中心领奖会议', date: '2026-07-17', time: '14:00-15:00', location: '北京市体彩中心', audience: '', scale: '2人', weather: '暂无预报数据（更新于7月6日）', traffic: '暂无交通信息（更新于7月7日）' }
 ];
 
+function getLocalEvents() {
+  try {
+    var stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}');
+    return Object.values(stored);
+  } catch(e) { return []; }
+}
+
+function getAllEvents() {
+  // Merge official + local, local overrides official by id
+  var map = {};
+  officialEvents.forEach(function(e){ map[e.id] = e; });
+  getLocalEvents().forEach(function(e){ map[e.id] = e; });
+  return Object.values(map);
+}
+
 function buildCalendar() {
+  var allEvents = getAllEvents();
+  window._allEvents = allEvents;
   var cal = document.getElementById('calendar');
   var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
   var html = '<div class="weekdays">';
@@ -131,7 +148,7 @@ function buildCalendar() {
   for (var d = 1; d <= daysInMonth; d++) {
     var dateStr = currentYear + '-' + String(currentMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     var isToday = dateStr === today;
-    var dayEvents = events.filter(function(e){ return e.date === dateStr; });
+    var dayEvents = allEvents.filter(function(e){ return e.date === dateStr; });
     html += '<div class="day current-month' + (isToday ? ' today' : '') + '">';
     html += '<div class="date">' + d + (isToday ? ' 今天' : '') + '</div>';
     dayEvents.forEach(function(ev){
@@ -147,7 +164,8 @@ function buildCalendar() {
 
 function openEvent(id) {
   selectedEventId = id;
-  var ev = events.find(function(e){ return e.id === id; });
+  var allEvents = getAllEvents();
+  var ev = allEvents.find(function(e){ return e.id === id; });
   if (!ev) return;
   document.getElementById('panelTitle').textContent = ev.name;
   document.getElementById('detailPanel').classList.add('open');
@@ -168,7 +186,8 @@ function showShareLink() {
   var box = document.getElementById('shareBox');
   box.classList.toggle('show');
   if (box.classList.contains('show')) {
-    var ev = events.find(function(e){ return e.id === selectedEventId; });
+    var allEvents = getAllEvents();
+    var ev = allEvents.find(function(e){ return e.id === selectedEventId; });
     document.getElementById('shareUrl').textContent = window.location.origin + window.location.pathname + '?event=' + ev.id;
   }
 }

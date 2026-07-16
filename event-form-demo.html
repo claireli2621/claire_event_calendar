@@ -166,32 +166,32 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
       </colgroup>
       <tr>
         <td class="lbl">会议名称</td>
-        <td class="fill" colspan="3"><input type="text" placeholder="输入活动名称"></td>
+        <td class="fill" colspan="3"><input type="text" id="evName" placeholder="输入活动名称"></td>
       </tr>
       <tr>
         <td class="lbl">会议时间</td>
         <td class="fill" colspan="3">
           <div class="date-inline">
-            <input type="date" value="2026-07-10">
-            <input type="text" class="time-input" placeholder="开始">
+            <input type="date" id="evDate" value="2026-07-10">
+            <input type="text" id="evTimeStart" class="time-input" placeholder="开始">
             <span class="sep">&ndash;</span>
-            <input type="text" class="time-input" placeholder="结束">
+            <input type="text" id="evTimeEnd" class="time-input" placeholder="结束">
           </div>
         </td>
       </tr>
       <tr>
         <td class="lbl">会议地点</td>
-        <td class="fill" colspan="3"><input type="text" placeholder="会议详细地址（如：北京CMIT office S1212庐山会议室）"></td>
+        <td class="fill" colspan="3"><input type="text" id="evLocation" placeholder="会议详细地址（如：北京CMIT office S1212庐山会议室）"></td>
       </tr>
       <tr>
         <td class="lbl">会议受众</td>
-        <td class="fill"><input type="text" placeholder="参会人员范围"></td>
+        <td class="fill"><input type="text" id="evAudience" placeholder="参会人员范围"></td>
         <td class="lbl">会议规模</td>
-        <td class="fill"><input type="text" placeholder="如 50人"></td>
+        <td class="fill"><input type="text" id="evScale" placeholder="如 50人"></td>
       </tr>
       <tr>
         <td class="lbl">会议背景</td>
-        <td class="fill" colspan="3"><textarea placeholder="描述活动的背景和目的..."></textarea></td>
+        <td class="fill" colspan="3"><textarea id="evBackground" placeholder="描述活动的背景和目的..."></textarea></td>
       </tr>
       <tr>
         <td class="lbl">承办单位</td>
@@ -609,12 +609,59 @@ function copyShareUrl() {
 }
 
 function autoSave() {
+  // Collect basic info
+  var name = document.getElementById('evName').value.trim();
+  if (!name) { alert('请先填写会议名称'); return; }
+
+  var dateVal = document.getElementById('evDate').value;
+  var t1 = document.getElementById('evTimeStart').value.trim();
+  var t2 = document.getElementById('evTimeEnd').value.trim();
+  var dateDisplay = formatDateChinese(dateVal);
+  var timeDisplay = (t1 && t2) ? (t1 + '-' + t2) : (t1 || t2 || '');
+
+  var id = 'event-' + dateVal + '-' + pinyinSlug(name);
+
+  // Load existing events from localStorage
+  var stored = {};
+  try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
+
+  // Build event record
+  var ev = {
+    id: id,
+    name: name,
+    date: dateVal,
+    time: timeDisplay,
+    location: document.getElementById('evLocation').value.trim(),
+    audience: document.getElementById('evAudience').value.trim(),
+    scale: document.getElementById('evScale').value.trim(),
+    background: document.getElementById('evBackground').value.trim(),
+    weather: '',
+    traffic: '',
+    updated: new Date().toISOString()
+  };
+
+  stored[id] = ev;
+  localStorage.setItem('claire_my_events', JSON.stringify(stored));
+
+  // Update UI
   document.getElementById('saveIndicator').textContent = '上次保存：' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
   document.getElementById('saveIndicator').style.color = '#10b981';
   document.getElementById('topBadge').textContent = '已保存';
   document.getElementById('topBadge').className = 'badge badge-ready';
   var btns = document.querySelectorAll('.btn-primary');
   btns.forEach(function(b){ b.textContent = '已保存 ✓'; b.style.background = '#10b981'; setTimeout(function(){ b.textContent = '保存'; b.style.background = '#2563eb'; }, 1500); });
+
+  alert('活动「' + name + '」已保存！\n\n刷新日历首页即可看到。想同步到网站让所有人看到？告诉我"更新活动"，我来推送到GitHub。');
+}
+
+function formatDateChinese(dateStr) {
+  if (!dateStr) return '';
+  var parts = dateStr.split('-');
+  return parts[0] + '年' + parseInt(parts[1]) + '月' + parseInt(parts[2]) + '日';
+}
+
+function pinyinSlug(name) {
+  return name.replace(/[^一-龥a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'event';
 }
 
 function refreshWeather() {
