@@ -849,6 +849,8 @@ function autoSave() {
   var oldTraffic = stored[id] ? stored[id].traffic || '' : '';
   stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, category:category, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:oldWeather, traffic:oldTraffic, updated:new Date().toISOString()};
   localStorage.setItem('claire_my_events', JSON.stringify(stored));
+  localStorage.setItem('claire_full_' + id, JSON.stringify(ev));
+  localStorage.setItem('claire_full_' + id, JSON.stringify(ev));
   localStorage.removeItem('claire_form_draft');
 
   if (GITHUB_TOKEN) {
@@ -1234,18 +1236,22 @@ setInterval(saveDraft, 30000);
     if (ta) ta.value = value;
   }
 
-  // Load from localStorage for quick display
+  // Try full event cache first, then summary, then GitHub
   var stored = {};
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
-  if (stored[editId]) { fillForm(stored[editId]); }
-
-  // Fetch from GitHub to get full event for save merge (don't overwrite form)
+  var fullCached = localStorage.getItem('claire_full_' + editId);
+  if (fullCached) {
+    try { fillForm(JSON.parse(fullCached)); } catch(e) { if (stored[editId]) fillForm(stored[editId]); }
+  } else if (stored[editId]) {
+    fillForm(stored[editId]);
+  }
+  // Always fetch from GitHub for latest data
   fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now())
     .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
     .then(function(data){
       var ev = (data.events||[]).find(function(e){ return e.id === editId; });
-      if (ev) { window._editingEvent = ev; }
-      if (!stored[editId]) { if (ev) fillForm(ev); else initCheckboxes(); }
+      if (ev) { fillForm(ev); localStorage.setItem('claire_full_' + editId, JSON.stringify(ev)); }
+      else if (!stored[editId] && !fullCached) { initCheckboxes(); }
     })
     .catch(function(){});
 })();
