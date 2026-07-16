@@ -638,29 +638,47 @@ function autoSave() {
   var dateCN = formatDateChinese(dateVal);
   var timeCN = dateCN ? (dateCN + ' ' + timeDisplay) : timeDisplay;
 
-  var ev = {
-    id: id, name: name,
-    category: category,
-    created: new Date().toISOString().slice(0,10), updated: new Date().toISOString(),
-    section1_basic_info: {
-      "会议名称": name,
-      "会议时间": timeCN,
-      "会议地点": document.getElementById('evLocation').value.trim(),
-      "会议受众": document.getElementById('evAudience').value.trim(),
-      "会议规模": document.getElementById('evScale').value.trim(),
-      "主办方资质": "", "会议背景": document.getElementById('evBackground').value.trim() || "", "会议预期": "", "参会要员": "",
-      "会议属性": {"渠道关系":{"公司客户":false,"顶级高校":false,"政府权威":false,"其他":false},"审批流程":{"微软内部":false,"学校关系":false,"政府关系":false,"其他关系":false},"参会形式":{"微软PR":false,"微软CELA":false,"无需批复":false},"宣传安排":{"现场参加":true,"线上参加":false,"现场+线上":false,"录制视频参加":false},"相关费用":{"新闻/短视频":false,"微软T&E":false,"现场直播":false,"主办方负责":false,"媒体采访":false,"劳务费":false,"不公开":false}}
-    },
-    section2_schedule: {"日程":[],"要员简介":[]},
-    section3_preparation: {"演讲时长":"","演讲时间":"","待办":[],"参考资料":"","分享主题":"","内容梗概":"","PPT要求":{},"现场照片":"","试播视频":""},
-    section4_departure: {"大交通安排":"","去程":"","回程":"","酒店安排":{"名称":"","地址":"","确认号":"","是否包早餐":""},"衣着要求":"","特殊携带":"","目的地天气":"","出行提示":""},
-    section5_wrapup: {"照片存档":"","录像存档":"","发言稿完整版":"","发言稿整理版":"","活动宣传发布内容":"","主办方是否索取文档分享版":""}
-  };
+  var ev;
+  if (editId && window._editingEvent && window._editingEvent.section1_basic_info) {
+    // Merge form fields into existing event (preserve schedules, VIPs, etc.)
+    ev = JSON.parse(JSON.stringify(window._editingEvent));
+    ev.name = name;
+    ev.category = category;
+    ev.updated = new Date().toISOString();
+    if (!ev.created) ev.created = new Date().toISOString().slice(0,10);
+    ev.section1_basic_info["会议名称"] = name;
+    ev.section1_basic_info["会议时间"] = timeCN;
+    ev.section1_basic_info["会议地点"] = document.getElementById('evLocation').value.trim();
+    ev.section1_basic_info["会议受众"] = document.getElementById('evAudience').value.trim();
+    ev.section1_basic_info["会议规模"] = document.getElementById('evScale').value.trim();
+    ev.section1_basic_info["会议背景"] = document.getElementById('evBackground').value.trim() || "";
+  } else {
+    ev = {
+      id: id, name: name,
+      category: category,
+      created: new Date().toISOString().slice(0,10), updated: new Date().toISOString(),
+      section1_basic_info: {
+        "会议名称": name,
+        "会议时间": timeCN,
+        "会议地点": document.getElementById('evLocation').value.trim(),
+        "会议受众": document.getElementById('evAudience').value.trim(),
+        "会议规模": document.getElementById('evScale').value.trim(),
+        "主办方资质": "", "会议背景": document.getElementById('evBackground').value.trim() || "", "会议预期": "", "参会要员": "",
+        "会议属性": {"渠道关系":{"公司客户":false,"顶级高校":false,"政府权威":false,"其他":false},"审批流程":{"微软内部":false,"学校关系":false,"政府关系":false,"其他关系":false},"参会形式":{"微软PR":false,"微软CELA":false,"无需批复":false},"宣传安排":{"现场参加":true,"线上参加":false,"现场+线上":false,"录制视频参加":false},"相关费用":{"新闻/短视频":false,"微软T&E":false,"现场直播":false,"主办方负责":false,"媒体采访":false,"劳务费":false,"不公开":false}}
+      },
+      section2_schedule: {"日程":[],"要员简介":[]},
+      section3_preparation: {"演讲时长":"","演讲时间":"","待办":[],"参考资料":"","分享主题":"","内容梗概":"","PPT要求":{},"现场照片":"","试播视频":""},
+      section4_departure: {"大交通安排":"","去程":"","回程":"","酒店安排":{"名称":"","地址":"","确认号":"","是否包早餐":""},"衣着要求":"","特殊携带":"","目的地天气":"","出行提示":""},
+      section5_wrapup: {"照片存档":"","录像存档":"","发言稿完整版":"","发言稿整理版":"","活动宣传发布内容":"","主办方是否索取文档分享版":""}
+    };
+  }
 
   // Save to localStorage
   var stored = {};
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
-  stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, category:category, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:'', traffic:'', updated:new Date().toISOString()};
+  var oldWeather = stored[id] ? stored[id].weather || '' : '';
+  var oldTraffic = stored[id] ? stored[id].traffic || '' : '';
+  stored[id] = {id:id, name:name, date:dateVal, time:timeDisplay, category:category, location:ev.section1_basic_info["会议地点"], audience:ev.section1_basic_info["会议受众"], scale:ev.section1_basic_info["会议规模"], weather:oldWeather, traffic:oldTraffic, updated:new Date().toISOString()};
   localStorage.setItem('claire_my_events', JSON.stringify(stored));
   // Clear draft
   localStorage.removeItem('claire_form_draft');
@@ -703,7 +721,8 @@ function publishToGitHub(ev, name) {
     .then(function(fileInfo){
       var data = { events: [] };
       try {
-        var content = atob(fileInfo.content.replace(/\s/g, ''));
+        var binary = atob(fileInfo.content.replace(/\s/g, ''));
+        var content = decodeURIComponent(escape(binary));
         data = JSON.parse(content);
       } catch(e) {}
 
@@ -838,34 +857,51 @@ setInterval(saveDraft, 30000);
   var params = new URLSearchParams(window.location.search);
   var editId = params.get('edit');
   if (!editId) { initCheckboxes(); return; }
-
   function fillForm(ev) {
+    window._editingEvent = ev;
     var s1 = ev.section1_basic_info || ev;
     document.getElementById('evName').value = ev.name || '';
-    if (ev.date) document.getElementById('evDate').value = ev.date;
-    if (ev.time) { var p = ev.time.split('-'); document.getElementById('evTimeStart').value = p[0]||''; document.getElementById('evTimeEnd').value = p[1]||''; }
+    if (ev.date) {
+      document.getElementById('evDate').value = ev.date;
+    } else if (s1['会议时间']) {
+      var dm = s1['会议时间'].match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      if (dm) document.getElementById('evDate').value = dm[1] + '-' + (dm[2].length<2?'0':'') + dm[2] + '-' + (dm[3].length<2?'0':'') + dm[3];
+    }
+    if (ev.time) {
+      var p = ev.time.split('-');
+      document.getElementById('evTimeStart').value = p[0]||'';
+      document.getElementById('evTimeEnd').value = p[1]||'';
+    } else if (s1['会议时间']) {
+      var tm = s1['会议时间'].match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/);
+      if (tm) { document.getElementById('evTimeStart').value = tm[1]; document.getElementById('evTimeEnd').value = tm[2]; }
+    }
     document.getElementById('evLocation').value = s1['会议地点'] || ev.location || '';
     document.getElementById('evAudience').value = s1['会议受众'] || ev.audience || '';
     document.getElementById('evScale').value = s1['会议规模'] || ev.scale || '';
     document.getElementById('evBackground').value = s1['会议背景'] || ev.background || '';
+    var cat = ev.category || '';
+    if (cat) {
+      var rb = document.querySelector('input[name="evCategory"][value="' + cat + '"]');
+      if (rb) { rb.checked = true; updateCategoryColor(); }
+    }
     document.getElementById('saveIndicator').textContent = '正在编辑：' + ev.name;
     document.getElementById('saveIndicator').style.color = '#2563eb';
     initCheckboxes();
   }
 
-  // Check localStorage first
+  // Load from localStorage for quick display
   var stored = {};
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
-  if (stored[editId]) { fillForm(stored[editId]); return; }
+  if (stored[editId]) { fillForm(stored[editId]); }
 
-  // Fetch from GitHub
+  // Also fetch from GitHub to get the full event (for proper save merge)
   fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now())
     .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
     .then(function(data){
       var ev = (data.events||[]).find(function(e){ return e.id === editId; });
-      if (ev) fillForm(ev); else initCheckboxes();
+      if (ev) fillForm(ev);
     })
-    .catch(function(){ initCheckboxes(); });
+    .catch(function(){});
 })();
 
 initCheckboxes();
