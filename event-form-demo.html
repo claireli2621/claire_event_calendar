@@ -873,7 +873,7 @@ function autoSave() {
         "是否包早餐": (s4_breakfast['有'] || s4_breakfast['无']) ? (s4_breakfast['有'] ? '有' : '无') : ''
       },
       "衣着要求": (function(){
-        var keys = Object.keys(s4_clothes);
+        var keys = Object.keys(s4_clothes).filter(function(k){ return s4_clothes[k]; });
         return keys.length > 0 ? keys.join('、') : '';
       })(),
       "特殊携带": readInput('sec4', '特殊携带'),
