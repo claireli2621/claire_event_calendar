@@ -156,6 +156,12 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
   <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:#e2e8f0;border-color:#475569;" onclick="window.location.href='index.html'">&#8592; 日历</button>
   <span class="logo">Claire<span> 活动管理</span></span>
   <span class="spacer"></span>
+  <span id="localRefreshBar" style="display:none;gap:8px;align-items:center;">
+    <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;color:#e2e8f0;border-color:#475569;" onclick="localRefresh('weather')" title="让本机 Claude 查询此活动的目的地天气">🌤 天气</button>
+    <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;color:#e2e8f0;border-color:#475569;" onclick="localRefresh('traffic')" title="让本机 Claude 查询此活动的出行提示">🚗 交通</button>
+    <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;color:#e2e8f0;border-color:#475569;" onclick="localRefresh('bio')" title="让本机 Claude 查询此活动所有要员的简介">👥 简介</button>
+    <span id="localRefreshStatus" style="font-size:11px;color:#94a3b8;min-width:60px;"></span>
+  </span>
   <span class="badge badge-draft" id="topBadge">草稿</span>
   <button class="btn btn-share" style="padding:5px 14px;font-size:12px;" onclick="openShareModal()">生成分享链接</button>
 </div>
@@ -629,6 +635,65 @@ function addTodo() {
   div.className = 'todo-item';
   div.innerHTML = '<input type="checkbox" class="todo-check" onchange="this.parentElement.classList.toggle(\'done\',this.checked)"><input class="todo-text" placeholder="输入待办事项..."><span class="todo-del" onclick="this.parentElement.remove()">x</span>';
   list.insertBefore(div, list.querySelector('.add-row'));
+}
+
+function localRefresh(type) {
+  var params = new URLSearchParams(window.location.search);
+  var eventId = params.get('view') || params.get('edit') || '';
+  var status = document.getElementById('localRefreshStatus');
+  var evName = '';
+  try { evName = (document.getElementById('evName') || {}).value || ''; } catch(e) {}
+  if (!evName) {
+    var nm = document.querySelector('[data-field="会议名称"] input, [data-field="evName"] input');
+    if (nm) evName = nm.value;
+  }
+  if (!eventId) {
+    if (status) { status.textContent = '请先保存活动'; status.style.color = '#dc2626'; }
+    return;
+  }
+  var btns = document.querySelectorAll('#localRefreshBar button');
+  btns.forEach(function(b){ b.disabled = true; b.style.opacity = '0.6'; });
+  if (status) {
+    var labelMap = {weather:'天气', traffic:'交通', bio:'要员简介'};
+    status.textContent = '正在刷新' + (labelMap[type] || type) + '…（最长 10 分钟）';
+    status.style.color = '#3b82f6';
+  }
+  fetch('http://127.0.0.1:8787/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: type, event_id: eventId, event_name: evName })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });
+    if (d && d.ok) {
+      if (status) { status.textContent = '已完成，正在重载…'; status.style.color = '#10b981'; }
+      // Refetch events.json and refill the form with fresh data
+      fetch('data/events.json?t=' + Date.now())
+        .catch(function(){ return fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now()); })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var ev = (data.events||[]).find(function(e){ return e.id === eventId; });
+          if (ev) {
+            localStorage.setItem('claire_full_' + eventId, JSON.stringify(ev));
+            fillForm(ev);
+            if (status) { status.textContent = '已完成'; status.style.color = '#10b981'; }
+          } else if (status) {
+            status.textContent = '完成但未找到该活动'; status.style.color = '#f59e0b';
+          }
+        })
+        .catch(function(){
+          if (status) { status.textContent = '完成，刷新页面失败，请按 F5'; status.style.color = '#f59e0b'; }
+        });
+    } else {
+      var msg = (d && d.error) ? d.error : '失败';
+      if (status) { status.textContent = '失败：' + msg.slice(0, 80); status.style.color = '#dc2626'; }
+    }
+  }).catch(function(err){
+    btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });
+    if (status) {
+      status.textContent = '无法连接本机服务。请双击 start-refresh-server.bat 启动 Claude 后再点此按钮。';
+      status.style.color = '#f59e0b';
+    }
+  });
 }
 
 function openShareModal() {
@@ -1279,6 +1344,22 @@ setInterval(saveDraft, 30000);
   // Set read-only mode for view
   if (isViewMode) {
     document.title = '活动详情 — Claire 活动管理';
+    // Show local refresh buttons (only meaningful in view mode — edit mode would lose unsaved edits)
+    var refreshBar = document.getElementById('localRefreshBar');
+    if (refreshBar) refreshBar.style.display = 'flex';
+    // Probe local server and dim buttons if it's not running
+    setTimeout(function(){
+      fetch('http://127.0.0.1:8787/ping', {method:'GET'}).then(function(r){ return r.json(); }).then(function(d){
+        if (d && d.ok) {
+          var s = document.getElementById('localRefreshStatus');
+          if (s) { s.textContent = '已连接本机 Claude'; s.style.color = '#10b981'; }
+        } else { throw new Error('bad'); }
+      }).catch(function(){
+        var s = document.getElementById('localRefreshStatus');
+        if (s) { s.textContent = '本机未启动刷新服务'; s.style.color = '#f59e0b'; }
+        document.querySelectorAll('#localRefreshBar button').forEach(function(b){ b.style.opacity = '0.5'; });
+      });
+    }, 200);
     // Disable all inputs (disabled radios/checkboxes still show their checked state)
     setTimeout(function(){
       document.querySelectorAll('input, textarea, select').forEach(function(el){ el.disabled = true; el.readOnly = true; });

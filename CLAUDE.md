@@ -105,6 +105,26 @@
 6. 交通数据写入 `section4_departure.出行提示` 字段
 7. 若某项信息查不到，该单项显示「暂无」
 
+### 本地直接触发（页面按钮 → Claude）
+当本机运行着 `local_refresh_server.py` 时，GitHub Pages 表单页面顶部的 🌤/🚗/👥 按钮可以**直接**触发本机 Claude 执行刷新，无需切换到对话窗口粘贴短语。
+
+**启动服务：**
+- 双击 `start-refresh-server.bat`，会弹出一个控制台窗口，显示「Claire 本地刷新服务 监听 http://127.0.0.1:8787」
+- 关闭控制台窗口即停止服务
+
+**触发流程：**
+1. 用户在 https://claireli2621.github.io/claire_event_calendar/event-form-demo.html?view=活动ID 打开活动详情页
+2. 顶部会显示「🌤 天气 / 🚗 交通 / 👥 简介」三个按钮和连接状态
+3. 点击按钮 → 页面 POST 到 `http://127.0.0.1:8787/refresh`，body 为 `{type, event_id, event_name}`
+4. 本地服务调 `claude.exe -p "刷新 XX 活动的天气"` 等触发短语
+5. Claude（本机）执行 SKILL → 写入 events.json → 推送 GitHub
+6. 服务返回成功 → 页面 refetch events.json 并自动重填表单
+
+**局限：**
+- 只在运行服务的那台电脑上有效；其他人访问页面时按钮会显示「本机未启动刷新服务」
+- Claude 必须已登录（用 NiuClaude 启动过即可，auth 文件已就绪）
+- HTTPS 页面调 http://localhost 是浏览器允许的安全例外，不会出现混合内容拦截
+
 ### 查看活动状态
 - 「看看微软AI峰会还有什么没填」
 - 「列出所有活动」
