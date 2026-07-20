@@ -664,7 +664,7 @@ function readCheckboxes(sectionId, label) {
 function readInput(sectionId, label) {
   var fill = getFillCell(sectionId, label);
   if (!fill) return '';
-  var inp = fill.querySelector('input[type="text"], input:not([type])');
+  var inp = fill.querySelector('input[type="text"], input[type="url"], input[type="email"], input:not([type])');
   return inp ? inp.value.trim() : '';
 }
 function readTextarea(sectionId, label) {
@@ -883,7 +883,15 @@ function autoSave() {
       },
       "衣着要求": (function(){
         var keys = Object.keys(s4_clothes).filter(function(k){ return s4_clothes[k]; });
-        return keys.length > 0 ? keys.join('、') : '';
+        var fill = getFillCell('sec4', '衣着要求');
+        var extra = '';
+        if (fill) {
+          var inp = fill.querySelector('input[type="text"], input:not([type])');
+          if (inp && inp.value.trim()) extra = inp.value.trim();
+        }
+        var parts = keys.slice();
+        if (extra) parts.push(extra);
+        return parts.length > 0 ? parts.join('、') : '';
       })(),
       "特殊携带": readInput('sec4', '特殊携带'),
       "目的地天气": (document.getElementById('weatherContent') || {}).textContent || '',
@@ -1332,11 +1340,24 @@ setInterval(saveDraft, 30000);
 
     var clothes = s4['衣着要求'] || '';
     var clothObj = {};
+    var clothExtra = '';
     if (clothes) {
       var clothParts = clothes.split('、');
-      clothParts.forEach(function(c){ clothObj[c] = true; });
+      var knownLabels = ['正装领带', '商务休闲', '无要求', '其他'];
+      clothParts.forEach(function(c){
+        if (knownLabels.indexOf(c) >= 0) {
+          clothObj[c] = true;
+        } else if (c) {
+          clothExtra = c;
+        }
+      });
     }
     setCheckboxGroup('sec4', '衣着要求', clothObj);
+    var clothFill = getFillCell('sec4', '衣着要求');
+    if (clothFill) {
+      var clothTxt = clothFill.querySelector('input[type="text"], input:not([type])');
+      if (clothTxt) clothTxt.value = clothExtra;
+    }
 
     var specInput = document.querySelector('#sec4 input[placeholder*="badge"]');
     if (specInput) specInput.value = s4['特殊携带'] || '';
@@ -1375,7 +1396,7 @@ setInterval(saveDraft, 30000);
   function setInputByLabel(sectionId, label, value) {
     var fill = getFillCell(sectionId, label);
     if (!fill || !value) return;
-    var inp = fill.querySelector('input[type="text"], input:not([type])');
+    var inp = fill.querySelector('input[type="text"], input[type="url"], input[type="email"], input:not([type])');
     if (inp) inp.value = value;
   }
   function setTextareaByLabel(sectionId, label, value) {
