@@ -652,15 +652,15 @@ function openVipQuery(btn) {
   var name = inputs[0] ? inputs[0].value.trim() : '';
   var title = inputs[1] ? inputs[1].value.trim() : '';
   var hint = tr.querySelector('.vip-query-hint');
-  if (!name || !title) {
+  if (!name) {
     if (hint) {
       hint.style.display = 'block';
-      hint.textContent = '请先填写「姓名」和「职务/公司」后再点查询';
+      hint.textContent = '请先填写「姓名」后再点查询';
       hint.style.color = '#dc2626';
       hint.style.background = '#fef2f2';
       hint.style.borderLeftColor = '#dc2626';
     } else {
-      alert('请先填写「姓名」和「职务/公司」后再点查询');
+      alert('请先填写「姓名」后再点查询');
     }
     return;
   }
@@ -678,11 +678,11 @@ function openVipQuery(btn) {
     }
     return;
   }
-  var phrase = '刷新要员简介 ' + eventId + ' ' + name + ' ' + title;
+  var phrase = '刷新 ' + name + ' 简介';
   // Copy to clipboard (fallback to prompt if clipboard API unavailable)
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(phrase).then(function(){
-      showVipHint(hint, '已复制触发短语到剪贴板。请到 Claude 对话中粘贴发送，查询完成后回到此页面刷新即可看到结果。', false);
+      showVipHint(hint, '已复制「' + phrase + '」到剪贴板。请到 Claude 对话中粘贴发送，查询完成后回到此页面按 F5 刷新即可看到结果。', false);
     }).catch(function(){
       showVipHint(hint, '请复制以下短语到 Claude 对话中发送：\n' + phrase, false);
     });
@@ -1540,7 +1540,9 @@ setInterval(saveDraft, 30000);
       var ev = (data.events||[]).find(function(e){ return e.id === eventId; });
       if (ev) {
         localStorage.setItem('claire_full_' + eventId, JSON.stringify(ev));
-        if (!formFilled) { fillForm(ev); formFilled = true; }
+        // In view mode, always refill with the latest data so updates pushed by Claude show up on refresh.
+        // In edit mode, only refill when no cached/local data was loaded, to avoid wiping unsaved edits.
+        if (isViewMode || !formFilled) { fillForm(ev); formFilled = true; }
         if (isViewMode) {
           document.getElementById('saveIndicator').textContent = '活动详情（只读）';
           document.getElementById('saveIndicator').style.color = '#10b981';

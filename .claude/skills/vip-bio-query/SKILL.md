@@ -9,14 +9,18 @@ Search the web for a person's bio and recent activities, then update `data/event
 
 ## When to Use
 
-User mentions refreshing/querying VIP bio with format like:
+User mentions refreshing/querying a VIP's bio. Two trigger forms:
+
+**Simple form (preferred by user):**
+- 「刷新 [name] 简介」 (e.g. 「刷新周鸿祎简介」) — finds the VIP by name across ALL events and updates every matching entry
+
+**Explicit form (when precision needed):**
 - 「刷新要员简介 [event-id] [name] [title]」
-- 「查要员 [name] ([title]) 的简介，更新到 [event-id]」
-- 「[event-id] 活动 要员 [name] [title] 简介」
+- 「刷新 XX 活动 [name] 的简介」
 
-Required inputs: event ID, VIP name, VIP title/company. If any is missing, ask user to provide.
+Required inputs: VIP name (always). Title/company is optional but helpful — if the form provides it, include it in search queries. If user uses the simple form, scan ALL events for matches.
 
-NOT for: searching without an event context, or for non-VIP entities (companies, products).
+NOT for: searching for non-VIP entities (companies, products).
 
 ## Workflow
 
