@@ -958,18 +958,24 @@ function updateCategoryColor() {
 
 function highlightSelectedCategory() {
   var checked = document.querySelector('input[name="evCategory"]:checked');
-  document.querySelectorAll('input[name="evCategory"]').forEach(function(el){
-    if (!el.parentElement) return;
-    if (el.checked) {
-      el.parentElement.style.fontWeight = '700';
-      el.parentElement.style.color = '#1d4ed8';
-      el.parentElement.style.opacity = '1';
-    } else {
-      el.parentElement.style.fontWeight = '';
-      el.parentElement.style.color = '';
-      el.parentElement.style.opacity = '0.4';
-    }
-  });
+  var cell = document.getElementById('categoryCell');
+  if (!cell) return;
+
+  // If no category selected, leave the form as-is (4 dimmed options)
+  if (!checked) {
+    document.querySelectorAll('input[name="evCategory"]').forEach(function(el){
+      if (el.parentElement) el.parentElement.style.opacity = '0.4';
+    });
+    return;
+  }
+
+  // Replace the entire cell with a clear badge showing the selected category
+  var labelMap = {internal:'内部会议', external:'外部活动', government:'政府交流', other:'其他'};
+  var colorMap = {internal:'#2563eb', external:'#10b981', government:'#f59e0b', other:'#6366f1'};
+  var val = checked.value;
+  var label = labelMap[val] || val;
+  var color = colorMap[val] || '#334155';
+  cell.innerHTML = '<span style="display:inline-block;padding:6px 18px;background:' + color + ';color:#fff;font-weight:700;font-size:14px;border-radius:6px;letter-spacing:1px;">' + label + '</span>';
 }
 
 function promptForToken(callback) {
