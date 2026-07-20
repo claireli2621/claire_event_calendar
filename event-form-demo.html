@@ -969,16 +969,31 @@ function promptForToken(callback) {
 }
 
 function publishToGitHub(ev, name) {
-  // First get current file SHA
+  // First get current file SHA + content
   fetch(GITHUB_API, { headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' } })
     .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(fileInfo){
+      // For files >1MB, GitHub Contents API returns empty content. Fall back to download_url.
+      var rawContent = (fileInfo.content || '').replace(/\s/g, '');
+      var sha = fileInfo.sha;
+      if (!rawContent && fileInfo.download_url) {
+        // Add cache-bust to avoid CDN stale data
+        var dlUrl = fileInfo.download_url + (fileInfo.download_url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+        return fetch(dlUrl).then(function(r){ return r.text(); }).then(function(text){
+          return { sha: sha, text: text };
+        });
+      }
+      // Decode base64 → UTF-8 text
+      var binary = atob(rawContent);
+      var text = decodeURIComponent(escape(binary));
+      return { sha: sha, text: text };
+    })
+    .then(function(payload){
       var data = { events: [] };
       try {
-        var binary = atob(fileInfo.content.replace(/\s/g, ''));
-        var content = decodeURIComponent(escape(binary));
-        data = JSON.parse(content);
-      } catch(e) {}
+        data = JSON.parse(payload.text);
+        if (!data || !data.events || !Array.isArray(data.events)) data = { events: [] };
+      } catch(e) { data = { events: [] }; }
 
       // Merge into existing event to preserve sections 2-5
       var found = false;
@@ -1003,7 +1018,7 @@ function publishToGitHub(ev, name) {
       return fetch(GITHUB_API, {
         method: 'PUT',
         headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Update: ' + name, content: newContent, sha: fileInfo.sha })
+        body: JSON.stringify({ message: 'Update: ' + name, content: newContent, sha: payload.sha })
       });
     })
     .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
