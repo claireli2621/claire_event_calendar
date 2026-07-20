@@ -956,6 +956,22 @@ function updateCategoryColor() {
   document.getElementById('topBadge').style.background = colors[cat] || '#334155';
 }
 
+function highlightSelectedCategory() {
+  var checked = document.querySelector('input[name="evCategory"]:checked');
+  document.querySelectorAll('input[name="evCategory"]').forEach(function(el){
+    if (!el.parentElement) return;
+    if (el.checked) {
+      el.parentElement.style.fontWeight = '700';
+      el.parentElement.style.color = '#1d4ed8';
+      el.parentElement.style.opacity = '1';
+    } else {
+      el.parentElement.style.fontWeight = '';
+      el.parentElement.style.color = '';
+      el.parentElement.style.opacity = '0.4';
+    }
+  });
+}
+
 function promptForToken(callback) {
   var token = prompt('首次发布需要 GitHub 访问令牌，只需设置一次。\n\n请前往 https://github.com/settings/tokens\n点击 Generate new token (classic)\n勾选 repo 权限，生成后粘贴到这里：');
   if (token && token.trim().length > 10) {
@@ -1190,18 +1206,8 @@ setInterval(saveDraft, 30000);
       document.querySelectorAll('.add-btn').forEach(function(el){ el.style.display = 'none'; });
       document.querySelectorAll('.todo-del').forEach(function(el){ el.style.display = 'none'; });
       document.querySelectorAll('.refresh-btn').forEach(function(el){ el.style.display = 'none'; });
-      // Highlight the selected category radio's label so the chosen type is obvious
-      var checkedCat = document.querySelector('input[name="evCategory"]:checked');
-      if (checkedCat && checkedCat.parentElement) {
-        checkedCat.parentElement.style.fontWeight = '700';
-        checkedCat.parentElement.style.color = '#1d4ed8';
-      }
-      // Unchecked category labels: dim them so the checked one stands out
-      document.querySelectorAll('input[name="evCategory"]').forEach(function(el){
-        if (!el.checked && el.parentElement) {
-          el.parentElement.style.opacity = '0.4';
-        }
-      });
+      // Try highlighting now in case fillForm already ran; otherwise fillForm will call us again
+      highlightSelectedCategory();
     }, 100);
     // Update bottom bar
     var bb = document.querySelector('.bottombar');
@@ -1245,6 +1251,8 @@ setInterval(saveDraft, 30000);
       var rb = document.querySelector('input[name="evCategory"][value="' + cat + '"]');
       if (rb) { rb.checked = true; updateCategoryColor(); }
     }
+    // In view mode, highlight the selected category label
+    if (isViewMode) highlightSelectedCategory();
 
     // Section 1 — checkboxes
     var attr = (s1['会议属性'] || {});
