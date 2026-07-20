@@ -91,6 +91,7 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
 .vip-table th.col-title, .vip-table td.col-title { width: 20%; }
 .vip-table th.col-bio, .vip-table td.col-bio { width: 68%; text-align: left; }
 .vip-table td input { width: 100%; border: none; background: transparent; font-size: 12px; font-family: inherit; padding: 4px; outline: none; }
+.vip-title-ta { width: 100%; border: none; background: transparent; font-size: 12px; font-family: inherit; padding: 4px; outline: none; min-height: 28px; resize: vertical; line-height: 1.4; }
 
 /* Todo list */
 .todo-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid #e8eaed; font-size: 13px; }
@@ -294,7 +295,7 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
             <tbody id="vipTable">
               <tr>
                 <td class="col-name"><input type="text" placeholder="输入姓名"></td>
-                <td class="col-title"><input type="text" placeholder="职务/公司"></td>
+                <td class="col-title"><textarea class="vip-title-ta" placeholder="职务/公司"></textarea></td>
                 <td class="col-bio">
                   <div style="position:relative;">
                     <button type="button" class="vip-query-btn" onclick="openVipQuery(this)" title="用 AI 查询此要员的简介和近期动态">🔍 查询</button>
@@ -618,7 +619,7 @@ function selectPill(el) {
 function addVipRow() {
   var tbody = document.getElementById('vipTable');
   var tr = document.createElement('tr');
-  tr.innerHTML = '<td class="col-name"><input type="text" placeholder="输入姓名"></td><td class="col-title"><input type="text" placeholder="职务/公司"></td><td class="col-bio"><div style="position:relative;"><button type="button" class="vip-query-btn" onclick="openVipQuery(this)" title="用 AI 查询此要员的简介和近期动态">🔍 查询</button><textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea></div><div class="vip-query-hint" style="display:none;margin-top:4px;font-size:11px;color:#1f6e8c;background:#e0eef2;padding:6px 8px;border-radius:3px;border-left:3px solid #1f6e8c;"></div></td>';
+  tr.innerHTML = '<td class="col-name"><input type="text" placeholder="输入姓名"></td><td class="col-title"><textarea class="vip-title-ta" placeholder="职务/公司"></textarea></td><td class="col-bio"><div style="position:relative;"><button type="button" class="vip-query-btn" onclick="openVipQuery(this)" title="用 AI 查询此要员的简介和近期动态">🔍 查询</button><textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea></div><div class="vip-query-hint" style="display:none;margin-top:4px;font-size:11px;color:#1f6e8c;background:#e0eef2;padding:6px 8px;border-radius:3px;border-left:3px solid #1f6e8c;"></div></td>';
   tbody.appendChild(tr);
 }
 
@@ -651,9 +652,10 @@ function openVipQuery(btn) {
   // Walk up: btn -> div (position:relative) -> td -> tr
   var tr = btn.closest('tr');
   if (!tr) { alert('无法定位要员行'); return; }
-  var inputs = tr.querySelectorAll('input[type="text"]');
-  var name = inputs[0] ? inputs[0].value.trim() : '';
-  var title = inputs[1] ? inputs[1].value.trim() : '';
+  var nameInput = tr.querySelector('input[type="text"]');
+  var titleTa = tr.querySelector('textarea.vip-title-ta');
+  var name = nameInput ? nameInput.value.trim() : '';
+  var title = titleTa ? titleTa.value.trim() : '';
   var hint = tr.querySelector('.vip-query-hint');
   if (!name) {
     if (hint) {
@@ -754,14 +756,13 @@ function readVips() {
   var rows = document.querySelectorAll('#vipTable tr');
   var vips = [];
   for (var i = 0; i < rows.length; i++) {
-    var inputs = rows[i].querySelectorAll('input[type="text"]');
-    var textarea = rows[i].querySelector('textarea');
-    if (inputs.length >= 2) {
-      var name = inputs[0].value.trim();
-      var title = inputs[1].value.trim();
-      if (name || title) {
-        vips.push({ "姓名": name, "Title公司": title, "简介近期动态": textarea ? textarea.value.trim() : "" });
-      }
+    var nameInput = rows[i].querySelector('input[type="text"]');
+    var titleTa = rows[i].querySelector('textarea.vip-title-ta');
+    var textarea = rows[i].querySelector('td.col-bio textarea');
+    var name = nameInput ? nameInput.value.trim() : '';
+    var title = titleTa ? titleTa.value.trim() : '';
+    if (name || title) {
+      vips.push({ "姓名": name, "Title公司": title, "简介近期动态": textarea ? textarea.value.trim() : "" });
     }
   }
   return vips;
@@ -1361,7 +1362,7 @@ setInterval(saveDraft, 30000);
       while (tbody.children.length > 1) tbody.removeChild(tbody.lastChild);
       var rows = tbody.querySelectorAll('tr');
       for (var vi = 0; vi < vips.length; vi++) {
-        var row, inputs;
+        var row;
         if (vi === 0) {
           row = rows[0];
         } else {
@@ -1369,10 +1370,11 @@ setInterval(saveDraft, 30000);
           var allRows = tbody.querySelectorAll('tr');
           row = allRows[allRows.length - 1];
         }
-        inputs = row.querySelectorAll('input[type="text"]');
-        var ta = row.querySelector('textarea');
-        if (inputs[0]) inputs[0].value = vips[vi]['姓名'] || '';
-        if (inputs[1]) inputs[1].value = vips[vi]['Title公司'] || '';
+        var nameInput = row.querySelector('input[type="text"]');
+        var titleTa = row.querySelector('textarea.vip-title-ta');
+        var ta = row.querySelector('td.col-bio textarea');
+        if (nameInput) nameInput.value = vips[vi]['姓名'] || '';
+        if (titleTa) titleTa.value = vips[vi]['Title公司'] || '';
         if (ta) ta.value = vips[vi]['简介近期动态'] || '';
       }
     }
