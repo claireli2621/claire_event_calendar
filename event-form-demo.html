@@ -84,9 +84,12 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
 .rich-editor:focus { background: #fafcff; }
 
 /* VIP table inside cell */
-.vip-table { width: 100%; border-collapse: collapse; }
-.vip-table th, .vip-table td { border: 1px solid #d0d3d8; padding: 6px 8px; font-size: 12px; text-align: center; }
+.vip-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.vip-table th, .vip-table td { border: 1px solid #d0d3d8; padding: 6px 8px; font-size: 12px; text-align: center; vertical-align: top; }
 .vip-table th { background: #f2f4f6; font-weight: 500; color: #475569; }
+.vip-table th.col-name, .vip-table td.col-name { width: 12%; }
+.vip-table th.col-title, .vip-table td.col-title { width: 20%; }
+.vip-table th.col-bio, .vip-table td.col-bio { width: 68%; text-align: left; }
 .vip-table td input { width: 100%; border: none; background: transparent; font-size: 12px; font-family: inherit; padding: 4px; outline: none; }
 
 /* Todo list */
@@ -287,12 +290,12 @@ body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #
         <td class="lbl">要员简介</td>
         <td class="fill" style="padding:4px;">
           <table class="vip-table">
-            <thead><tr><th>姓名</th><th>职务/公司</th><th>简介/近期动态</th></tr></thead>
+            <thead><tr><th class="col-name">姓名</th><th class="col-title">职务/公司</th><th class="col-bio">简介/近期动态</th></tr></thead>
             <tbody id="vipTable">
               <tr>
-                <td><input type="text" placeholder="输入姓名"></td>
-                <td><input type="text" placeholder="职务/公司"></td>
-                <td>
+                <td class="col-name"><input type="text" placeholder="输入姓名"></td>
+                <td class="col-title"><input type="text" placeholder="职务/公司"></td>
+                <td class="col-bio">
                   <div style="position:relative;">
                     <button type="button" class="vip-query-btn" onclick="openVipQuery(this)" title="用 AI 查询此要员的简介和近期动态">🔍 查询</button>
                     <textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea>
@@ -615,7 +618,7 @@ function selectPill(el) {
 function addVipRow() {
   var tbody = document.getElementById('vipTable');
   var tr = document.createElement('tr');
-  tr.innerHTML = '<td><input type="text" placeholder="输入姓名"></td><td><input type="text" placeholder="职务/公司"></td><td><div style="position:relative;"><button type="button" class="vip-query-btn" onclick="openVipQuery(this)" title="用 AI 查询此要员的简介和近期动态">🔍 查询</button><textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea></div><div class="vip-query-hint" style="display:none;margin-top:4px;font-size:11px;color:#1f6e8c;background:#e0eef2;padding:6px 8px;border-radius:3px;border-left:3px solid #1f6e8c;"></div></td>';
+  tr.innerHTML = '<td class="col-name"><input type="text" placeholder="输入姓名"></td><td class="col-title"><input type="text" placeholder="职务/公司"></td><td class="col-bio"><div style="position:relative;"><button type="button" class="vip-query-btn" onclick="openVipQuery(this)" title="用 AI 查询此要员的简介和近期动态">🔍 查询</button><textarea placeholder="根据提供的要员信息，可在此粘贴简介及近期动态，500字以内" style="width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:4px;outline:none;min-height:52px;resize:vertical;"></textarea></div><div class="vip-query-hint" style="display:none;margin-top:4px;font-size:11px;color:#1f6e8c;background:#e0eef2;padding:6px 8px;border-radius:3px;border-left:3px solid #1f6e8c;"></div></td>';
   tbody.appendChild(tr);
 }
 
