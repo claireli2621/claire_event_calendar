@@ -1183,15 +1183,25 @@ setInterval(saveDraft, 30000);
   // Set read-only mode for view
   if (isViewMode) {
     document.title = '活动详情 — Claire 活动管理';
-    // Disable all inputs
+    // Disable all inputs (disabled radios/checkboxes still show their checked state)
     setTimeout(function(){
       document.querySelectorAll('input, textarea, select').forEach(function(el){ el.disabled = true; el.readOnly = true; });
       document.querySelectorAll('.rich-editor').forEach(function(el){ el.contentEditable = 'false'; });
       document.querySelectorAll('.add-btn').forEach(function(el){ el.style.display = 'none'; });
       document.querySelectorAll('.todo-del').forEach(function(el){ el.style.display = 'none'; });
       document.querySelectorAll('.refresh-btn').forEach(function(el){ el.style.display = 'none'; });
-      // Hide radio inputs visually
-      document.querySelectorAll('input[type="radio"]').forEach(function(el){ el.style.display = 'none'; });
+      // Highlight the selected category radio's label so the chosen type is obvious
+      var checkedCat = document.querySelector('input[name="evCategory"]:checked');
+      if (checkedCat && checkedCat.parentElement) {
+        checkedCat.parentElement.style.fontWeight = '700';
+        checkedCat.parentElement.style.color = '#1d4ed8';
+      }
+      // Unchecked category labels: dim them so the checked one stands out
+      document.querySelectorAll('input[name="evCategory"]').forEach(function(el){
+        if (!el.checked && el.parentElement) {
+          el.parentElement.style.opacity = '0.4';
+        }
+      });
     }, 100);
     // Update bottom bar
     var bb = document.querySelector('.bottombar');
