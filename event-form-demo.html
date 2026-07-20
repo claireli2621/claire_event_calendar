@@ -1390,6 +1390,13 @@ setInterval(saveDraft, 30000);
   try { stored = JSON.parse(localStorage.getItem('claire_my_events') || '{}'); } catch(e) {}
   var fullCached = localStorage.getItem('claire_full_' + eventId);
   var formFilled = false;
+
+  // Show loading state for view mode
+  if (isViewMode && !fullCached) {
+    document.getElementById('saveIndicator').textContent = '正在加载活动数据...';
+    document.getElementById('saveIndicator').style.color = '#64748b';
+  }
+
   if (fullCached) {
     try { fillForm(JSON.parse(fullCached)); formFilled = true; } catch(e) { if (stored[eventId]) { fillForm(stored[eventId]); formFilled = true; } }
   } else if (stored[eventId]) {
@@ -1398,18 +1405,31 @@ setInterval(saveDraft, 30000);
   // Fetch from same origin first (works on GitHub Pages), fall back to raw CDN
   fetch('data/events.json?t=' + Date.now())
     .catch(function(){ return fetch('https://raw.githubusercontent.com/claireli2621/claire_event_calendar/master/data/events.json?t=' + Date.now()); })
-    .then(function(r){ if(!r.ok) throw new Error('not found'); return r.json(); })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(data){
       var ev = (data.events||[]).find(function(e){ return e.id === eventId; });
       if (ev) {
-        // Always update cache with latest GitHub data
         localStorage.setItem('claire_full_' + eventId, JSON.stringify(ev));
-        // Only fill form if localStorage didn't already have data
-        if (!formFilled) { fillForm(ev); }
+        if (!formFilled) { fillForm(ev); formFilled = true; }
+        if (isViewMode) {
+          document.getElementById('saveIndicator').textContent = '活动详情（只读）';
+          document.getElementById('saveIndicator').style.color = '#10b981';
+        }
       }
-      else if (!formFilled) { initCheckboxes(); }
+      else if (!formFilled) {
+        initCheckboxes();
+        if (isViewMode) {
+          document.getElementById('saveIndicator').textContent = '未找到该活动（ID: ' + eventId + '）';
+          document.getElementById('saveIndicator').style.color = '#dc2626';
+        }
+      }
     })
-    .catch(function(){});
+    .catch(function(err){
+      if (isViewMode && !formFilled) {
+        document.getElementById('saveIndicator').textContent = '加载失败：无法获取活动数据，请检查网络连接';
+        document.getElementById('saveIndicator').style.color = '#dc2626';
+      }
+    });
 })();
 
 initCheckboxes();
