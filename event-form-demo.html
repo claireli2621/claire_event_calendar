@@ -618,7 +618,16 @@ function addTodo() {
   list.insertBefore(div, list.querySelector('.add-row'));
 }
 
-function openShareModal() { document.getElementById('shareModal').classList.add('show'); }
+function openShareModal() {
+  var params = new URLSearchParams(window.location.search);
+  var eventId = params.get('edit') || params.get('view') || '';
+  if (eventId) {
+    document.getElementById('shareLinkInput').value = 'https://claireli2621.github.io/claire_event_calendar/event-form-demo.html?view=' + encodeURIComponent(eventId);
+  } else {
+    document.getElementById('shareLinkInput').value = '请先保存活动后再生成分享链接';
+  }
+  document.getElementById('shareModal').classList.add('show');
+}
 function closeShareModal() { document.getElementById('shareModal').classList.remove('show'); }
 function copyShareUrl() {
   document.getElementById('shareLinkInput').select();

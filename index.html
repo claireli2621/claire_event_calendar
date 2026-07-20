@@ -245,7 +245,8 @@ function showShareLink() {
   if (box.classList.contains('show')) {
     var allEvents = getAllEvents();
     var ev = allEvents.find(function(e){ return e.id === selectedEventId; });
-    document.getElementById('shareUrl').textContent = window.location.origin + window.location.pathname + '?event=' + ev.id;
+    var base = window.location.origin + window.location.pathname.replace(/[^/]+$/, '');
+    document.getElementById('shareUrl').textContent = base + 'event-form-demo.html?view=' + encodeURIComponent(ev.id);
   }
 }
 
