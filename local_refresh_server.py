@@ -166,6 +166,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         ok, output = run_claude(phrase)
         ts2 = time.strftime("%Y-%m-%d %H:%M:%S")
         sys.stdout.write("[%s] CLAUDE DONE ok=%s out_len=%d\n" % (ts2, ok, len(output or "")))
+        if not ok or len(output or "") < 200:
+            # Log the actual content for short/error outputs — helps debugging
+            sys.stdout.write("[%s] CLAUDE OUTPUT: %r\n" % (ts2, output[:500]))
         sys.stdout.flush()
         summary = (output or "").strip()
         if len(summary) > 2000:
