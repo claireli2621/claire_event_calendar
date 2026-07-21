@@ -68,6 +68,15 @@ def run_claude(phrase):
     """Run claude.exe -p with the trigger phrase; return (ok, output)."""
     if not os.path.exists(CLAUDE_EXE):
         return False, "claude.exe not found at " + CLAUDE_EXE
+    # NiuClaude redirects Claude's profile to C:\Users\<user>\NiuClaude. When
+    # this server is launched via .bat from the desktop, USERPROFILE points to
+    # the real Windows profile (C:\Users\<user>) and Claude can't find its auth
+    # file there — fails in ~1s. Force the env vars to point at NiuClaude.
+    env = os.environ.copy()
+    niu = r"C:\Users\limiao.CMIT\NiuClaude"
+    if os.path.isdir(niu):
+        env["USERPROFILE"] = niu
+        env["HOME"] = niu
     try:
         proc = subprocess.run(
             [CLAUDE_EXE, "-p", "--dangerously-skip-permissions", phrase],
@@ -77,6 +86,7 @@ def run_claude(phrase):
             encoding="utf-8",
             errors="replace",
             timeout=600,
+            env=env,
         )
         out = (proc.stdout or "") + ("\n[stderr]\n" + proc.stderr if proc.stderr else "")
         if proc.returncode != 0:
