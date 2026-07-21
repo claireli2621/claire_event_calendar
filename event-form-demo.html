@@ -1290,6 +1290,11 @@ document.querySelectorAll('.tmpl-table input[type="text"], .tmpl-table input[typ
 
 // ---- Auto-save draft every 30 seconds ----
 function saveDraft() {
+  // Only save drafts for genuinely new events (no ?edit= or ?view=).
+  // Otherwise we'd pollute the draft with data from the event being edited/viewed,
+  // and the next "新建活动" visit would restore that stale data.
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('edit') || params.get('view')) return;
   var draft = {
     name: document.getElementById('evName').value,
     date: document.getElementById('evDate').value,
@@ -1310,7 +1315,8 @@ setInterval(saveDraft, 30000);
 // ---- Restore draft on load ----
 (function restoreDraft() {
   var params = new URLSearchParams(window.location.search);
-  if (params.get('edit')) return; // Don't restore draft if editing existing
+  // Don't restore draft if editing (?edit=) or viewing (?view=) an existing event
+  if (params.get('edit') || params.get('view')) return;
   try {
     var draft = JSON.parse(localStorage.getItem('claire_form_draft'));
     if (draft) {
