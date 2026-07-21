@@ -115,6 +115,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._json(404, {"ok": False, "error": "unknown path: " + self.path})
 
     def do_POST(self):
+        # Wrap everything in a try/except so unexpected errors get logged and
+        # returned as JSON, not swallowed by BaseHTTPRequestHandler (which
+        # would send an empty 500 with no diagnostic).
+        try:
+            self._handle_post()
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            ts = time.strftime("%Y-%m-%d %H:%M:%S")
+            sys.stdout.write("[%s] UNHANDLED EXCEPTION in do_POST:\n%s\n" % (ts, tb))
+            sys.stdout.flush()
+            try:
+                self._json(500, {"ok": False, "error": repr(e), "traceback": tb[:2000]})
+            except Exception:
+                pass  # connection may already be broken
+
+    def _handle_post(self):
         if self.path != "/refresh":
             self._json(404, {"ok": False, "error": "unknown path: " + self.path})
             return
@@ -135,11 +152,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         sys.stdout.write("[%s] REFRESH type=%s phrase=%r\n" % (ts, body.get("type"), phrase))
         sys.stdout.flush()
 
-        # Run in a worker thread so future requests can be queued / observed.
-        # For simplicity here we run synchronously — the page will await the response.
+        # Run synchronously — the page will await the response.
         ok, output = run_claude(phrase)
-        # Trim huge outputs; the page only needs a status summary.
-        summary = output.strip()
+        ts2 = time.strftime("%Y-%m-%d %H:%M:%S")
+        sys.stdout.write("[%s] CLAUDE DONE ok=%s out_len=%d\n" % (ts2, ok, len(output or "")))
+        sys.stdout.flush()
+        summary = (output or "").strip()
         if len(summary) > 2000:
             summary = summary[:2000] + "\n...(truncated)"
         self._json(200 if ok else 500, {"ok": ok, "phrase": phrase, "output": summary})
